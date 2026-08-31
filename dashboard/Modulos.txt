@@ -1,0 +1,146 @@
+https://claude.ai/code/artifact/4d1039cb-0f98-4943-8c90-856818c7e36e
+
+Componente Solicitud:
+Objetivo principal, gestionar las solicitudes de personal externo por cliente y por perfil de cargo. 
+Usarios que interactúan: 
+a) Supervisor. Empelado de SOSGroup responsable en terreno del personal externo que SOS group provee a sus clientes (empresas que requieren personal temporal por tipo de cargo y/o Faena). Un supervisor puede atender varios clientes.
+b) Reclutador. Empelado de SOSGroup responsable de ejecutar la solicitud de personal de una empresas especifica en base a un perfil de cargo definido. Cada reclutador tiene bajo su gestión una o mas empresas. Cada empresa puede tener 1 o mas solicitudes activas o en ejecución. 
+
+Acciones:
+Nueva Solicitud
+Nuevo cliente
+Nuevo Perfil de cargo
+Ver/Modificar Solicitud
+Ver/Modificar Cliente
+Ver/Modificar Perfil de cargo
+Asignar Reclutador a Cliente
+Asignar Supervisor a Cliente
+
+Flujo. 
+Supervisor crea nueva solicitud o requiere mas personal de una solicitud existente.
+Reclutador recibe aviso de nueva solicitud o requerimiento de mas personal de una solicitud.
+Reclutador inicia el proceso de solicitud
+
+Datos 
+Maestro de cliente 
+Maestro de solicitud encabezado, Código Solicitud, Cliente, Fecha inicio de servicio, Dirección servicio, Perfil de cargo
+Maestro de detalle de Solicitud. Corresponde a cada proceso de búsqueda para un mismo perfil de cargo de un asolicitud.
+Maestro de perfil cargo.
+
+Componente Perfil
+Objetivo: Crear un perfil de cargo con las necesidades y requerimientos del cliente. Este perfil podrá tener actualizaciones de renta principalmente
+Construye y aprueba el perfil
+SUPERVISOR / RECLUTADOR
+✓ Perfil aprobado
+Condiciones de la oferta. (ya creadas o se deben crear de cargos nuevo. )
+Exsite una ficha que define las condiciones del Cargo. 
+Esta ficha es construida por operaciones/reclutamiento
+Cada solicitud debe actualizer las fichas creadas.
+
+
+Componente: Apertura
+Objetivo: Crea formalmente la búsqueda, se debe registrar en el LOG del sistema el inicio del proceso de búsqueda una vez que el Perfil de Cargo sea Aprobado por la linea de supervisión. Se debe enviar un correo a los supervisores informando el inicio de la búsqueda.
+Este componente debe aparece como tercera opción a la derecha de la seccion "Perfiles de cargo"
+
+
+a) Reclutador debe prepara el aviso y  solicitar la aprobación, luego debe publicar los avisos en las diferentes plataformas.
+
+
+Acciones:
+Debe poder seleccionar la solicitud ya aprobada e iniciar el proceso.
+Debe presentar una linea de tiempo desde inicio hasta la fecha marcando los siguientes hitos Inicio / Texto Aviso / Publicación / ultima Publicación 
+
+Debe presenta un log de Publicaciones con Usuario, Paltaforma, fecha-hora, numero de postulantes
+Debe existir un editor de aviso prediseñado, completar los datos mediante campos o selectores , y se deben poder copiar los avisos. Estos son el formato HTML o PDF.
+Publicar Aviso, esto genera el formato para cada plataforma y lo carga vía API con las credenciales del usaurio o mediante un proceso de login, 
+descargar el aviso listo para cargar. en el caso de que no se pueda hacer via API, se descarga el aviso y el reclutador lo envia a la plataforma.
+
+
+Flujo
+Inicio, se parte con la aprobación del perfil de cargo
+Texto Aviso. Se construye el aviso en el plataforma un único modelo para ser enviado a todas las plataformas de búsqueda.
+Publicación, el sistema debe ser capaza de enviar los avisos vía API a varias plataformas, cada reclutador tiene su propia clave para publicar y en algunos casos se usan claves de empresa.
+La publicación se debe hacer en cl.computrabajo.com, Trabajando.com, LinkedIn, Facebook, Instagram y tiktok
+Una vez publicada, se pueden hacer nuevas publicaciones para la misma solicitud con nuevos avisos.
+
+Datos
+Maestro de solicitudes
+Maestros de usuarios / se debe guardar información de los accesos para la publicación vía API
+Maestro de Avisos, texto y versiones., código HTML
+Maestro PUblicaciones/ LOG de estado / Cantidad de postulantes
+Log de actividad de usuario y acciones para auditoria.
+Verifica si es necesario mas datos
+
+dime como lo harías y te digo como seguir.
+
+
+
+Componente Evaluación
+
+Objetivo. El supervisor de operaciones debe dar su visto bueno a cada uno de los seleccionados. 
+
+a) reclutador va aprobando a los preselaccionados que cumplen con el 100% delos requerimientos
+b) Supervisor de operaciones va aporbando a los preselccionados.
+
+Acciones
+Reclutador slecciona a los postulantes que cumplen con el requisito.
+Supervisor de opeeraciones aprueba /rechaza postulantes
+
+Flujo
+se ven las solicitudes en curso con la cantida de psotulantes 
+el reclutador va aprbando a los preselccionados que cumplen con todo los requistios 
+Supervisor va a porbando a los postulanetes
+
+Datos
+Maestro psotulantes
+Maestro solicitudes
+Log de registro
+
+dime como lo harías y te digo como seguir.
+
+
+Modulo Postulación 
+Objetivo: Es un panel de acceso publico que le permite a cualquier persona postular a los cargos(solicitudes), a través de este modulo el psotulante podra ver que solicitudes estan disponible, podra participar y podra enviar los datos y completar las tareas de preselección en la medida que vaya avanzando en el proceso.
+el panel debe ser autoresponsivo y debe funcionar en telefonos moviles.
+es de acceso publico
+
+a) postulantes
+
+Acciones
+Ver y seleccionar una solicitud para postular.
+Inscripcion inicial. El sistema le pide nombre, telefono y correo. 
+Verificacion de postulante. El sistema verifica telefono y correo. si existe, le manda mail con codigo para acceder. Si no existe le pérmite avanzar
+Aceptación de politicas de uso de informacion personal, luego de ingresar los datos el sistema le pide que acepte las politicas de uso de datos personales. Mail a su correo el cual debe aceptar con un link-token para aceptar la politica.
+Con la aceptacion se activa la cuenta.
+Nueva postulación. si el candidato existe, y postula a una nueva solicitud, el sistema le envia correo para que vuelva a aceptar las politicas de uso de datos personales. 
+Selecciona Solicitud para postular.
+Carga informacion en un formulario con datos del psotulante
+Upload de documentos (PDF o Archivo Imagen), Datos Documento de identidad, CV, Certificado Antecedentes, Certificado AFP, Certificado Isapre/fonasa.
+Postular a solicitud.
+Contestar Test a través de PIA (cuando reclutador lo habilite) 
+Enviar mensaje por solicitud al reclutador. . 
+
+
+Flujo
+
+Postulante accede al sitio, ve las solicitudes disponibles
+Listado de solicitudes Abiertas, puede ver un resumen de la solicitud (bonton Postular)
+selecciona y presiona boto Postular.
+Formulario base solicita nombre completo, telefono y mail. 
+si no existe (correo o telefono), envia formulario de politica datos personales. Si existe continua.
+Formulario le indica que debe aceptar la politica de datos personales enviada al correo.
+Correo tiene un Link/token unico que despliega una pantalla con la politica y boton aceptar o rechazar. 
+Si acepta se activa la cuenta, y el envia nuevo mail con pedf de la ppolitica de datos aceptada por el.
+Pasa al formulario de datos, debe llenar informacion base del psotulante
+Debe hacer upload de documento.
+y guardar.
+Se despliegan las solictudes activas y el debe seleccionar la que quiere participar. 
+acepta. 
+se le envia correo con las solicitudes seleccionas. 
+Ingresa al proceso que gestiona el reclutador. 
+
+Datos
+Maestro de postulantes
+Maestro de Solicitudes
+Maestro Historial Postulante
+Valida si se requieren mas datos.
