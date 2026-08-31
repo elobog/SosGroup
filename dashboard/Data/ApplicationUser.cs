@@ -2,8 +2,13 @@ using Microsoft.AspNetCore.Identity;
 
 namespace dashboard.Data;
 
-// Add profile data for application users by adding properties to the ApplicationUser class
+// Ver BD_Dashboard.md > Admin > ApplicationUser (extiende AspNetUsers)
 public class ApplicationUser : IdentityUser
 {
-}
+    public string Nombre { get; set; } = string.Empty;
 
+    // Activo / Bloqueado
+    public string Estado { get; set; } = "Activo";
+
+    public DateTime? UltimaVerificacion2FA { get; set; }
+}
