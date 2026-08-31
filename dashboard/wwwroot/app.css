@@ -1,48 +1,19 @@
-:root {
-    --sos-navy: #1c244b;
-    --sos-navy-light: #324a6d;
-    --sos-red: #9c2b34;
-    --sos-red-dark: #7d222a;
-    --sos-gray-light: #c8d5dc;
-    --sos-gray: #d1cfcf;
-}
-
 html, body {
-    font-family: 'Barlow', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    color: var(--sos-navy);
-}
-
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Barlow Condensed', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-weight: 600;
-    color: var(--sos-navy);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 a, .btn-link {
-    color: var(--sos-red);
-}
-
-a:hover, .btn-link:hover {
-    color: var(--sos-red-dark);
+    color: #006bb7;
 }
 
 .btn-primary {
     color: #fff;
-    background-color: var(--sos-red);
-    border-color: var(--sos-red);
-}
-
-.btn-primary:hover, .btn-primary:active {
-    background-color: var(--sos-red-dark) !important;
-    border-color: var(--sos-red-dark) !important;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem var(--sos-navy-light);
-}
-
-.form-control:focus {
-    border-color: var(--sos-navy-light);
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 .content {

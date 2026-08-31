@@ -17,23 +17,12 @@
 
 .top-row {
     min-height: 3.5rem;
-    background-color: rgba(0,0,0,0.15);
+    background-color: rgba(0,0,0,0.4);
 }
 
 .navbar-brand {
     font-size: 1.1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 600;
-    letter-spacing: 0.03em;
 }
-
-    .navbar-brand img {
-        height: 2rem;
-        width: auto;
-    }
 
 .bi {
     display: inline-block;
@@ -103,12 +92,12 @@
     }
 
 .nav-item ::deep a.active {
-    background-color: #9c2b34;
+    background-color: rgba(255,255,255,0.37);
     color: white;
 }
 
 .nav-item ::deep .nav-link:hover {
-    background-color: rgba(156,43,52,0.5);
+    background-color: rgba(255,255,255,0.1);
     color: white;
 }
 
