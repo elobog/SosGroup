@@ -1,0 +1,53 @@
+@rendermode InteractiveServer
+@implements IDisposable
+
+@using dashboard.Data
+
+@inject AppSeleccionState SeleccionState
+
+<nav class="sidebar">
+    @if (appActual is not null)
+    {
+        <div class="app-title">
+            <strong>@appActual</strong>
+            <span>Módulos</span>
+        </div>
+        @foreach (var modulo in SeleccionState.Acceso.GetValueOrDefault(appActual, []))
+        {
+            var etiqueta = PortalDefinicion.EtiquetaModulo(appActual, modulo);
+            var construido = PortalDefinicion.ModulosConstruidos.GetValueOrDefault(appActual, []).Contains(modulo);
+            if (construido && PortalDefinicion.RutaModulo.TryGetValue($"{appActual}:{modulo}", out var ruta))
+            {
+                <NavLink class="nav-item" href="@ruta">@etiqueta</NavLink>
+            }
+            else
+            {
+                <div class="nav-locked" title="Próximamente">
+                    <svg width="16" height="16" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
+                    @etiqueta
+                </div>
+            }
+        }
+    }
+</nav>
+
+@code {
+    private string? appActual;
+
+    protected override void OnInitialized()
+    {
+        appActual = SeleccionState.AppActual;
+        SeleccionState.OnChange += ManejarCambio;
+    }
+
+    private void ManejarCambio()
+    {
+        appActual = SeleccionState.AppActual;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SeleccionState.OnChange -= ManejarCambio;
+    }
+}

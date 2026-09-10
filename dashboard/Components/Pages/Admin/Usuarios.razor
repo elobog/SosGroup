@@ -1,0 +1,252 @@
+@page "/Admin/Usuarios"
+@page "/Admin/Usuarios/{Id}"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using dashboard.Data
+
+@inject AccesoAppService AccesoService
+@inject UserManager<ApplicationUser> UserManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject NavigationManager NavigationManager
+
+<PageTitle>Usuarios | SOS Group</PageTitle>
+
+@if (Id is null)
+{
+    <div class="page-head">
+        <div>
+            <div class="breadcrumb"><b>Admin</b> / Usuarios</div>
+            <h1>Usuarios</h1>
+            <p>Cuentas del portal. Al crear un usuario se le envía un correo para que fije su contraseña.</p>
+        </div>
+        <div class="page-actions">
+            <button class="table-action" @onclick="() => mostrandoFormulario = !mostrandoFormulario">+ Crear usuario</button>
+        </div>
+    </div>
+
+    @if (mensaje is not null)
+    {
+        <div class="panel" style="padding:14px 20px; color:var(--ok);">@mensaje</div>
+    }
+
+    @if (mostrandoFormulario)
+    {
+        <div class="panel">
+            <div class="panel-head"><h3>Datos del usuario</h3><span class="tag">Nuevo</span></div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Nombre</label>
+                    <input @bind="nuevoNombre" type="text" placeholder="Ej. Nombre Apellido" />
+                </div>
+                <div class="form-field">
+                    <label>Correo corporativo</label>
+                    <input @bind="nuevoCorreo" type="email" placeholder="nombre.apellido@sosgroup.cl" />
+                </div>
+                <div class="form-field">
+                    <label>Celular</label>
+                    <input @bind="nuevoCelular" type="text" placeholder="+56912345678" />
+                </div>
+                <div class="form-field">
+                    <label>Perfil</label>
+                    <select @bind="nuevoPerfil">
+                        @foreach (var p in perfiles)
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            @if (error is not null)
+            {
+                <p class="text-danger" style="padding:0 20px;">@error</p>
+            }
+            <div class="form-actions">
+                <button class="btn-ghost" style="width:auto;" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+                <button class="btn-primary" style="width:auto;margin:0;" @onclick="CrearUsuario">Crear usuario</button>
+            </div>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="panel-head"><h3>Usuarios</h3><span class="tag">@usuarios.Count usuarios</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>Correo</th><th>Perfil</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @foreach (var u in usuarios)
+                    {
+                        <tr>
+                            <td><button class="row-code" @onclick="() => AbrirUsuario(u.Id)">@u.Nombre</button></td>
+                            <td>@u.Correo</td>
+                            <td><span class="pill pending">@(u.Perfil ?? "Sin perfil")</span></td>
+                            <td>@if (u.Bloqueado) { <span class="pill warn">Bloqueado</span> } else { <span class="pill ok">Activo</span> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else
+{
+    <div class="page-head">
+        <div>
+            <div class="breadcrumb"><b>Admin</b> / <a href="/Admin/Usuarios">Usuarios</a> / @editNombre</div>
+            <h1>@editNombre</h1>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Datos del usuario</h3></div>
+        <div class="detail-grid">
+            <div><span class="detail-lbl">Nombre</span><span class="detail-val">@editNombre</span></div>
+            <div><span class="detail-lbl">Correo corporativo</span><span class="detail-val">@editCorreo</span></div>
+            <div><span class="detail-lbl">Celular</span><span class="detail-val">@editCelular</span></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Perfil y estado</h3><span class="tag">Editable</span></div>
+        <div class="form-grid">
+            <div class="form-field">
+                <label>Perfil</label>
+                <select @bind="editPerfil">
+                    @foreach (var p in perfiles)
+                    {
+                        <option value="@p">@p</option>
+                    }
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Estado</label>
+                <select @bind="editEstado">
+                    <option value="Activo">Activo</option>
+                    <option value="Bloqueado">Bloqueado</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" style="width:auto;margin:0;" @onclick="GuardarUsuario">Guardar cambios</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+
+    private List<AccesoAppService.UsuarioResumen> usuarios = [];
+    private List<string> perfiles = [];
+
+    private bool mostrandoFormulario;
+    private string nuevoNombre = string.Empty;
+    private string nuevoCorreo = string.Empty;
+    private string nuevoCelular = string.Empty;
+    private string nuevoPerfil = string.Empty;
+    private string? error;
+    private string? mensaje;
+
+    private string editNombre = string.Empty;
+    private string editCorreo = string.Empty;
+    private string editCelular = string.Empty;
+    private string editPerfil = string.Empty;
+    private string editEstado = "Activo";
+
+    protected override async Task OnInitializedAsync()
+    {
+        perfiles = (await AccesoService.ObtenerPerfilesAsync()).Select(p => p.Nombre).ToList();
+        nuevoPerfil = perfiles.FirstOrDefault() ?? string.Empty;
+
+        if (Id is null)
+        {
+            usuarios = await AccesoService.ListarUsuariosAsync();
+        }
+        else
+        {
+            var user = await UserManager.FindByIdAsync(Id);
+            if (user is null)
+            {
+                NavigationManager.NavigateTo("/Admin/Usuarios");
+                return;
+            }
+            editNombre = user.Nombre;
+            editCorreo = user.Email ?? string.Empty;
+            editCelular = user.PhoneNumber ?? string.Empty;
+            var roles = await UserManager.GetRolesAsync(user);
+            editPerfil = roles.FirstOrDefault() ?? perfiles.FirstOrDefault() ?? string.Empty;
+            editEstado = await UserManager.IsLockedOutAsync(user) ? "Bloqueado" : "Activo";
+        }
+    }
+
+    private void AbrirUsuario(string id) => NavigationManager.NavigateTo($"/Admin/Usuarios/{id}");
+
+    private async Task CrearUsuario()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(nuevoNombre) || string.IsNullOrWhiteSpace(nuevoCorreo) || string.IsNullOrWhiteSpace(nuevoCelular))
+        {
+            error = "Nombre, correo y celular son obligatorios.";
+            return;
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = nuevoCorreo.Trim(),
+            Email = nuevoCorreo.Trim(),
+            EmailConfirmed = true,
+            Nombre = nuevoNombre.Trim(),
+            PhoneNumber = nuevoCelular.Trim(),
+        };
+
+        var createResult = await UserManager.CreateAsync(user);
+        if (!createResult.Succeeded)
+        {
+            error = string.Join(" ", createResult.Errors.Select(e => e.Description));
+            return;
+        }
+
+        await UserManager.AddToRoleAsync(user, nuevoPerfil);
+
+        var code = await UserManager.GeneratePasswordResetTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ResetPassword").AbsoluteUri,
+            new Dictionary<string, object?> { ["code"] = code });
+        await EmailSender.SendPasswordResetLinkAsync(user, user.Email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        nuevoNombre = nuevoCorreo = nuevoCelular = string.Empty;
+        mostrandoFormulario = false;
+        mensaje = $"Usuario creado. Se envió un correo a {user.Email} para que fije su contraseña.";
+        usuarios = await AccesoService.ListarUsuariosAsync();
+    }
+
+    private async Task GuardarUsuario()
+    {
+        if (Id is null) return;
+        var user = await UserManager.FindByIdAsync(Id);
+        if (user is null) return;
+
+        var rolesActuales = await UserManager.GetRolesAsync(user);
+        if (!rolesActuales.Contains(editPerfil))
+        {
+            await UserManager.RemoveFromRolesAsync(user, rolesActuales);
+            await UserManager.AddToRoleAsync(user, editPerfil);
+        }
+
+        var bloqueado = editEstado == "Bloqueado";
+        user.Estado = editEstado;
+        await UserManager.UpdateAsync(user);
+        await UserManager.SetLockoutEnabledAsync(user, true);
+        await UserManager.SetLockoutEndDateAsync(user, bloqueado ? DateTimeOffset.MaxValue : null);
+
+        NavigationManager.NavigateTo("/Admin/Usuarios");
+    }
+}

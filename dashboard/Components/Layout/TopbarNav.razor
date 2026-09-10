@@ -1,0 +1,98 @@
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Identity
+@using dashboard.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject AccesoAppService AccesoService
+@inject AppSeleccionState SeleccionState
+
+<div class="topbar">
+    <div class="brand">
+        <img src="images/logo-sos-group.png" alt="SOS Group" />
+    </div>
+
+    <nav class="app-links">
+        @foreach (var app in appsHabilitadas)
+        {
+            <button class="app-link @(app == SeleccionState.AppActual ? "active" : "")" @onclick="() => SeleccionState.Seleccionar(app)">@app</button>
+        }
+        @foreach (var app in AppsProximamente)
+        {
+            <span class="app-link app-link-locked" title="Próximamente">@app</span>
+        }
+    </nav>
+
+    <div class="topbar-spacer"></div>
+
+    <div class="user-menu">
+        <button class="user-menu-btn" @onclick="() => menuAbierto = !menuAbierto">
+            <span class="avatar">@iniciales</span>
+            <span class="who">
+                <strong>@nombreUsuario</strong>
+                <small>@rolPrincipal</small>
+            </span>
+            <svg class="chev" width="14" height="14" viewBox="0 0 20 20"><use href="#i-chevron" /></svg>
+        </button>
+        <div class="user-dropdown @(menuAbierto ? "open" : "")">
+            <div class="uhead">
+                <span class="avatar">@iniciales</span>
+                <div>
+                    <strong>@nombreUsuario</strong>
+                    <span>@correoUsuario</span>
+                    <span class="role-pill">@rolPrincipal</span>
+                </div>
+            </div>
+            <a class="udd-item" href="Account/Manage/ChangePassword">
+                <svg width="16" height="16" viewBox="0 0 20 20"><use href="#i-cog" /></svg> Cambiar contraseña
+            </a>
+            <form action="Account/Logout" method="post">
+                <AntiforgeryToken />
+                <input type="hidden" name="ReturnUrl" value="/" />
+                <button type="submit" class="udd-item danger">
+                    <svg width="16" height="16" viewBox="0 0 20 20"><use href="#i-logout" /></svg> Cerrar sesión
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string[] AppsProximamente = ["Remuneración"];
+
+    private List<string> appsHabilitadas = [];
+    private string nombreUsuario = string.Empty;
+    private string correoUsuario = string.Empty;
+    private string rolPrincipal = string.Empty;
+    private string iniciales = string.Empty;
+    private bool menuAbierto;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        // GetUserId solo lee un claim del ClaimsPrincipal — no toca la base de datos, a diferencia
+        // de GetUserAsync. El resto de los datos se cargan vía AccesoService (su propio DbContext).
+        var userId = UserManager.GetUserId(authState.User);
+        if (userId is null)
+        {
+            return;
+        }
+
+        var perfil = await AccesoService.ObtenerPerfilUsuarioAsync(userId);
+        if (perfil is null)
+        {
+            return;
+        }
+
+        nombreUsuario = perfil.Nombre;
+        correoUsuario = perfil.Correo;
+        iniciales = string.Concat(perfil.Nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
+        rolPrincipal = string.Join(", ", perfil.Roles);
+
+        var acceso = await AccesoService.ObtenerAccesoAsync(userId);
+        appsHabilitadas = acceso.Keys.OrderBy(a => a).ToList();
+        var appInicial = appsHabilitadas.Contains("Reclutamiento") ? "Reclutamiento" : appsHabilitadas.FirstOrDefault();
+        SeleccionState.Inicializar(acceso, appInicial);
+    }
+}

@@ -1,0 +1,86 @@
+@page "/Admin/Perfiles"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using dashboard.Data
+
+@inject AccesoAppService AccesoService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Perfiles | SOS Group</PageTitle>
+
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Admin</b> / Perfiles</div>
+        <h1>Perfiles</h1>
+        <p>Perfiles disponibles en el portal y qué aplicaciones tiene habilitadas cada uno. Editá el detalle de accesos en "Accesos por perfil".</p>
+    </div>
+    <div class="page-actions">
+        <button class="table-action" @onclick="() => mostrandoFormulario = !mostrandoFormulario">+ Crear perfil</button>
+    </div>
+</div>
+
+@if (mostrandoFormulario)
+{
+    <div class="panel">
+        <div class="panel-head"><h3>Nuevo perfil</h3></div>
+        <div class="form-grid">
+            <div class="form-field">
+                <label>Nombre del perfil</label>
+                <input @bind="nuevoNombre" type="text" placeholder="Ej. Auditor Externo" />
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-ghost" style="width:auto;" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+            <button class="btn-primary" style="width:auto;margin:0;" @onclick="CrearPerfil">Crear perfil</button>
+        </div>
+    </div>
+}
+
+<div class="panel">
+    <div class="panel-head"><h3>Perfiles</h3><span class="tag">@perfiles.Count perfiles</span></div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Perfil</th><th>Usuarios</th><th>Aplicaciones habilitadas</th></tr></thead>
+            <tbody>
+                @foreach (var p in perfiles)
+                {
+                    <tr>
+                        <td><button class="row-code" @onclick="IrAAccesos">@p.Nombre</button></td>
+                        <td>@p.CantidadUsuarios</td>
+                        <td class="wrap">@(p.Apps.Count > 0 ? string.Join(", ", p.Apps) : "Sin aplicaciones")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<AccesoAppService.PerfilResumen> perfiles = [];
+    private bool mostrandoFormulario;
+    private string nuevoNombre = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        perfiles = await AccesoService.ObtenerPerfilesAsync();
+    }
+
+    private void IrAAccesos() => NavigationManager.NavigateTo("/Admin/Accesos");
+
+    private async Task CrearPerfil()
+    {
+        if (string.IsNullOrWhiteSpace(nuevoNombre)) return;
+        await AccesoService.CrearPerfilAsync(nuevoNombre.Trim());
+        nuevoNombre = string.Empty;
+        mostrandoFormulario = false;
+        await CargarAsync();
+    }
+}

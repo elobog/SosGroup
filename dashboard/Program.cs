@@ -23,8 +23,14 @@ builder.Services.AddAuthentication(options =>
     .AddIdentityCookies();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Blazor Server comparte el DbContext scoped por circuito (sesión), no por request: componentes
+// interactivos que quedan montados todo el tiempo (topbar/sidebar) pueden correr consultas al
+// mismo tiempo que una página recién cargada y EF Core no soporta eso. AccesoAppService pide un
+// DbContext nuevo por consulta vía este factory en vez del scoped de abajo, para no competir con
+// Identity (UserManager/SignInManager, que sí necesitan el scoped de siempre).
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
+builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -37,7 +43,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>, CorreoSistemaService>();
+builder.Services.AddScoped<AccesoAppService>();
+builder.Services.AddScoped<AppSeleccionState>();
 
 var app = builder.Build();
 

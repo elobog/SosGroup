@@ -1,12 +1,15 @@
 ﻿@page "/"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 
 <PageTitle>SOS Group | Dashboard</PageTitle>
 
-<AuthorizeView>
-    <Authorized>
-        <h1>Dashboard</h1>
-        <p>Bienvenido, @context.User.Identity?.Name.</p>
-    </Authorized>
-</AuthorizeView>
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Inicio</b></div>
+        <h1>Bienvenido</h1>
+        <p>Selecciona un módulo del menú lateral para comenzar. Los módulos se irán habilitando a medida que se construyan.</p>
+    </div>
+</div>

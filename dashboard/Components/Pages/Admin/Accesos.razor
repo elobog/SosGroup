@@ -1,0 +1,95 @@
+@page "/Admin/Accesos"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using dashboard.Data
+
+@inject AccesoAppService AccesoService
+
+<PageTitle>Accesos por perfil | SOS Group</PageTitle>
+
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Admin</b> / Accesos por perfil</div>
+        <h1>Accesos por perfil</h1>
+        <p>Define qué aplicaciones y módulos puede ver cada perfil. Los cambios se guardan de inmediato.</p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-head"><h3>Matriz de accesos</h3><span class="tag">@roles.Count perfiles</span></div>
+    <div class="table-wrap">
+        <table class="access-table">
+            <thead>
+                <tr>
+                    <th>Aplicación / Módulo</th>
+                    @foreach (var r in roles)
+                    {
+                        <th style="text-align:center">@r.Name</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (app, modulos) in PortalDefinicion.Apps)
+                {
+                    <tr class="access-app-row">
+                        <td>@app</td>
+                        @foreach (var r in roles)
+                        {
+                            var habilitado = apps.Contains((r.Id, app));
+                            <td class="access-check">
+                                <input type="checkbox" checked="@habilitado" @onchange="e => ToggleApp(r.Id, app, (bool)e.Value!)" />
+                            </td>
+                        }
+                    </tr>
+                    @foreach (var (moduloId, label) in modulos)
+                    {
+                        <tr class="access-mod-row">
+                            <td style="padding-left:38px;">@label</td>
+                            @foreach (var r in roles)
+                            {
+                                var appHabilitada = apps.Contains((r.Id, app));
+                                var habilitado = modulosSet.Contains((r.Id, app, moduloId));
+                                <td class="access-check">
+                                    <input type="checkbox" checked="@habilitado" disabled="@(!appHabilitada)" @onchange="e => ToggleModulo(r.Id, app, moduloId, (bool)e.Value!)" />
+                                </td>
+                            }
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="access-note">Marca o desmarca una aplicación para dar o quitar acceso completo a un perfil; los módulos dentro de esa aplicación solo se pueden marcar si la aplicación está habilitada. Un usuario con sesión activa ve el cambio reflejado en su próximo inicio de sesión.</div>
+</div>
+
+@code {
+    private List<IdentityRole> roles = [];
+    private HashSet<(string RoleId, string App)> apps = [];
+    private HashSet<(string RoleId, string App, string Modulo)> modulosSet = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        (roles, apps, modulosSet) = await AccesoService.ObtenerMatrizAsync();
+    }
+
+    private async Task ToggleApp(string roleId, string app, bool habilitado)
+    {
+        await AccesoService.ToggleAppAsync(roleId, app, habilitado);
+        await CargarAsync();
+    }
+
+    private async Task ToggleModulo(string roleId, string app, string modulo, bool habilitado)
+    {
+        await AccesoService.ToggleModuloAsync(roleId, app, modulo, habilitado);
+        await CargarAsync();
+    }
+}
