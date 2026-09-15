@@ -1,4 +1,5 @@
-﻿@page "/Account/LoginWithRecoveryCode"
+@page "/Account/LoginWithRecoveryCode"
+@layout dashboard.Components.Layout.AuthCardLayout
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
@@ -9,29 +10,21 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<LoginWithRecoveryCode> Logger
 
-<PageTitle>Recovery code verification</PageTitle>
+<PageTitle>Código de recuperación | SOS Group</PageTitle>
 
-<h1>Recovery code verification</h1>
-<hr />
 <StatusMessage Message="@message" />
-<p>
-    You have requested to log in with a recovery code. This login will not be remembered until you provide
-    an authenticator app code at log in or disable 2FA and log in again.
-</p>
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" FormName="login-with-recovery-code" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="form-control" autocomplete="off" placeholder="RecoveryCode" />
-                <label for="Input.RecoveryCode" class="form-label">Recovery Code</label>
-                <ValidationMessage For="() => Input.RecoveryCode" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-        </EditForm>
+<EditForm Model="Input" FormName="login-with-recovery-code" OnValidSubmit="OnValidSubmitAsync" method="post">
+    <DataAnnotationsValidator />
+    <h2>Código de recuperación</h2>
+    <div class="sub">Este ingreso no quedará recordado hasta que uses un código de tu app autenticadora o desactives la verificación en dos pasos.</div>
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="field">
+        <label for="Input.RecoveryCode">Código de recuperación</label>
+        <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" autocomplete="off" />
+        <ValidationMessage For="() => Input.RecoveryCode" class="text-danger" />
     </div>
-</div>
+    <button type="submit" class="btn-primary">Ingresar</button>
+</EditForm>
 
 @code {
     private string? message;
@@ -73,15 +66,15 @@
         else
         {
             Logger.LogWarning("Invalid recovery code entered for user with ID '{UserId}' ", userId);
-            message = "Error: Invalid recovery code entered.";
+            message = "Error: código de recuperación inválido.";
         }
     }
 
     private sealed class InputModel
     {
-        [Required]
+        [Required(ErrorMessage = "El código de recuperación es obligatorio.")]
         [DataType(DataType.Text)]
-        [Display(Name = "Recovery Code")]
+        [Display(Name = "código de recuperación")]
         public string RecoveryCode { get; set; } = "";
     }
 }

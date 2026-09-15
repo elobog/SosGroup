@@ -67,8 +67,9 @@ Perfiles de fábrica (seed, no una lista cerrada):
 - Construir el shell de dashboard (`MainLayout`/`NavMenu` reales) con el look and feel de la maqueta.
 - Construir la primera pantalla de contenido real (Solicitud, Módulo 1 de Reclutamiento).
 - Revisar `remuneraciones.md` con el modelo de perfiles vigente antes de construir esa app.
-- **🔴 Pendiente (ver bitácora 2026-09-15):** de las 17 páginas de `Account/Pages`, solo `Login.razor` tiene `@layout BlankLayout` + CSS propio. Las otras 16 (Register, ResetPassword, ConfirmEmail, Lockout, etc.) caen en el `MainLayout` genérico con el sidebar de plantilla de Blazor (Home/Counter/Weather) — mismo bug que se corrigió puntualmente en `ForgotPassword.razor`, queda repetirlo en el resto.
-- **🔴 Pendiente (ver bitácora 2026-09-15):** barra "An unhandled error has occurred" visible en pantallas de `Account` (se ve incluso en Login) — parece un error real sin manejar en el circuito de Blazor Server, no investigado todavía.
+- **✅ Resuelto (2026-09-15):** las 17 páginas de `Account/Pages` ahora tienen layout y estilo correcto — ver bitácora.
+- **🔴 Pendiente (ver bitácora 2026-09-15):** barra "An unhandled error has occurred"/"Ha ocurrido un error inesperado" visible en pantallas de `Account` (se ve incluso en Login) — parece un error real sin manejar en el circuito de Blazor Server, no investigado todavía.
+- **🔴 Pendiente:** el mismo bug del sidebar de plantilla probablemente sigue existiendo en el shell post-login (`MainLayout`/`NavMenu`, ver sección "Dashboard" arriba) — no se tocó en esta sesión, es un layout distinto al de `Account`.
 
 ## Bitácora de sesiones
 
@@ -88,4 +89,14 @@ Perfiles de fábrica (seed, no una lista cerrada):
 
 > **⚠️ Advertencia para cualquier deploy futuro a `qa-sosgroup` o a cualquier app de este resource group (`rg-aitbp-app`, Linux + `WEBSITE_RUN_FROM_PACKAGE=1`): nunca usar `Compress-Archive` de PowerShell ni `System.IO.Compression.ZipFile.CreateFromDirectory` para armar el zip de deploy — ambos rompen el sitio completo.** Usar Python (`zipfile`, marcando `create_system = 3` en cada entrada) — ver script usado esta sesión o el de `Insuseg.md`.
 
-**Estado al cierre:** `ForgotPassword.razor` con layout y estilo correctos, desplegado y verificado visualmente en QA. Pendiente real para la próxima sesión: las otras 15 páginas de `Account` con el mismo bug de sidebar, y la barra de error sin manejar (ver "Pendiente" arriba).
+**Estado al cierre (primera parte de la sesión):** `ForgotPassword.razor` con layout y estilo correctos, desplegado y verificado visualmente en QA. Pendiente real para la próxima sesión: las otras 15 páginas de `Account` con el mismo bug de sidebar, y la barra de error sin manejar (ver "Pendiente" arriba).
+
+**6. Continuación misma sesión: arregladas las 15 páginas restantes de `Account/Pages`.** A diferencia del fix puntual de `ForgotPassword` (CSS scoped a esa sola página), acá se optó por **unificar**: nuevo layout compartido `Components/Layout/AuthCardLayout.razor` + `.razor.css` (tarjeta blanca centrada, reutilizando las mismas variables de `app.css`) que envuelve el `@Body` y estiliza vía `::deep` el contenido de cada página hija (`.field`/`label`/`input`, `.btn-primary`, `.link-btn`, `h2`, `.sub`, `.alert`, `.text-danger`). Se migró `ForgotPassword.razor` a este layout también (se borró su `ForgotPassword.razor.css` propio, ya no hace falta) para no tener el mismo CSS duplicado en 16 archivos distintos.
+
+Páginas arregladas (agregado `@layout AuthCardLayout`, reestructurado el HTML al patrón `.field`/`.btn-primary`, traducido el texto visible a español incluyendo mensajes de validación y de estado en el `@code`, sin tocar la lógica): `AccessDenied`, `ConfirmEmail`, `ConfirmEmailChange`, `ExternalLogin`, `ForgotPasswordConfirmation`, `InvalidPasswordReset`, `InvalidUser`, `Lockout`, `LoginWith2fa`, `LoginWithRecoveryCode`, `Register`, `RegisterConfirmation`, `ResendEmailConfirmation`, `ResetPassword`, `ResetPasswordConfirmation`.
+
+**Cambio funcional menor de paso:** en `Register.razor` se sacó la columna "Use another service to register" (`ExternalLoginPicker`) — no hay ningún proveedor externo configurado en `Program.cs` (solo `AddIdentityCookies()`), así que esa columna solo mostraba un mensaje de "no configurado" sin ninguna función real. El componente `ExternalLoginPicker.razor` no se borró (queda sin usar, para el día que se configure login externo de verdad).
+
+**Verificado:** build limpio, deploy a QA con el mismo zip Unix-safe del punto 5 (nadie repitió el error de `Compress-Archive`), capturas de pantalla de 7 páginas representativas sin errores de consola, y **flujo real de punta a punta** con Playwright: se llenó y envió el formulario de `ForgotPassword` con el correo real `Ignacio@melirrepu.com` (cuenta que sí existe) — redirigió correctamente a `ForgotPasswordConfirmation` con el nuevo estilo, sin errores. El correo de recuperación real se disparó vía Graph a esa cuenta.
+
+**Estado al cierre:** las 17 páginas de `Account/Pages` (incluyendo Login) tienen ahora layout y estilo consistentes. Pendiente real para la próxima sesión: la barra de error sin manejar (ver "Pendiente" arriba) y el mismo bug de sidebar en el shell post-login (`MainLayout`/`NavMenu`), que es un layout distinto y no se tocó.

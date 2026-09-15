@@ -1,4 +1,5 @@
 @page "/Account/RegisterConfirmation"
+@layout dashboard.Components.Layout.AuthCardLayout
 
 @using Microsoft.AspNetCore.Identity
 @using dashboard.Data
@@ -6,13 +7,13 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Register confirmation</PageTitle>
+<PageTitle>Confirmación de registro | SOS Group</PageTitle>
 
-<h1>Register confirmation</h1>
+<h2>Confirmación de registro</h2>
 
 <StatusMessage Message="@statusMessage" />
 
-<p role="alert">Please check your email to confirm your account.</p>
+<p role="alert">Revisa tu correo para confirmar tu cuenta.</p>
 
 @code {
     private string? statusMessage;
@@ -38,7 +39,7 @@
         if (user is null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-            statusMessage = "Error finding user for unspecified email";
+            statusMessage = "Error: no se encontró el usuario para el correo indicado";
         }
     }
 }
