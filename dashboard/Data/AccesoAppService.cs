@@ -32,7 +32,7 @@ public class AccesoAppService(IDbContextFactory<ApplicationDbContext> dbFactory)
         var apps = await db.PerfilesAplicacion.Where(p => roleIds.Contains(p.RoleId)).Select(p => p.App).Distinct().ToListAsync();
         var modulos = await db.PerfilesModulo.Where(p => roleIds.Contains(p.RoleId)).Select(p => new { p.App, p.Modulo }).Distinct().ToListAsync();
 
-        return apps.ToDictionary(app => app, app => modulos.Where(m => m.App == app).Select(m => m.Modulo).OrderBy(m => m).ToList());
+        return apps.ToDictionary(app => app, app => modulos.Where(m => m.App == app).Select(m => m.Modulo).OrderBy(m => PortalDefinicion.OrdenModulo(app, m)).ToList());
     }
 
     public record PerfilResumen(string RoleId, string Nombre, int CantidadUsuarios, List<string> Apps);

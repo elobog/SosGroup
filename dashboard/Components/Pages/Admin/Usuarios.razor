@@ -69,8 +69,8 @@
                 <p class="text-danger" style="padding:0 20px;">@error</p>
             }
             <div class="form-actions">
-                <button class="btn-ghost" style="width:auto;" @onclick="() => mostrandoFormulario = false">Cancelar</button>
-                <button class="btn-primary" style="width:auto;margin:0;" @onclick="CrearUsuario">Crear usuario</button>
+                <button class="btn-ghost" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+                <button class="btn-primary" @onclick="CrearUsuario">Crear usuario</button>
             </div>
         </div>
     }
@@ -79,7 +79,7 @@
         <div class="panel-head"><h3>Usuarios</h3><span class="tag">@usuarios.Count usuarios</span></div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Nombre</th><th>Correo</th><th>Perfil</th><th>Estado</th></tr></thead>
+                <thead><tr><th>Nombre</th><th>Correo</th><th>Perfil</th><th>Estado</th><th class="col-actions"></th></tr></thead>
                 <tbody>
                     @foreach (var u in usuarios)
                     {
@@ -88,6 +88,22 @@
                             <td>@u.Correo</td>
                             <td><span class="pill pending">@(u.Perfil ?? "Sin perfil")</span></td>
                             <td>@if (u.Bloqueado) { <span class="pill warn">Bloqueado</span> } else { <span class="pill ok">Activo</span> }</td>
+                            <td class="col-actions">
+                                <div class="row-actions">
+                                    @if (u.Bloqueado)
+                                    {
+                                        <button class="row-icon-btn" title="Activar" @onclick="() => ToggleBloqueo(u.Id, false)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="row-icon-btn danger" title="Bloquear" @onclick="() => ToggleBloqueo(u.Id, true)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-trash" /></svg>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -134,7 +150,7 @@ else
             </div>
         </div>
         <div class="form-actions">
-            <button class="btn-primary" style="width:auto;margin:0;" @onclick="GuardarUsuario">Guardar cambios</button>
+            <button class="btn-primary" @onclick="GuardarUsuario">Guardar cambios</button>
         </div>
     </div>
 }
@@ -187,6 +203,19 @@ else
     }
 
     private void AbrirUsuario(string id) => NavigationManager.NavigateTo($"/Admin/Usuarios/{id}");
+
+    private async Task ToggleBloqueo(string id, bool bloquear)
+    {
+        var user = await UserManager.FindByIdAsync(id);
+        if (user is null) return;
+
+        user.Estado = bloquear ? "Bloqueado" : "Activo";
+        await UserManager.UpdateAsync(user);
+        await UserManager.SetLockoutEnabledAsync(user, true);
+        await UserManager.SetLockoutEndDateAsync(user, bloquear ? DateTimeOffset.MaxValue : null);
+
+        usuarios = await AccesoService.ListarUsuariosAsync();
+    }
 
     private async Task CrearUsuario()
     {

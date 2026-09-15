@@ -1,0 +1,367 @@
+@page "/Admin/Clientes"
+@page "/Admin/Clientes/{Id:int}"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Supervisor Administrativo")]
+
+@using Microsoft.AspNetCore.Authorization
+@using dashboard.Data
+@using dashboard.Models.Admin
+
+@inject ClientesService ClientesService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Clientes | SOS Group</PageTitle>
+
+@if (Id is null)
+{
+    <div class="page-head">
+        <div>
+            <div class="breadcrumb"><b>Admin</b> / Clientes</div>
+            <h1>Clientes</h1>
+            <p>Directorio único de clientes, compartido entre Reclutamiento y Remuneración.</p>
+        </div>
+        <div class="page-actions">
+            <button class="table-action" @onclick="() => mostrandoFormulario = !mostrandoFormulario">+ Crear cliente</button>
+        </div>
+    </div>
+
+    @if (mostrandoFormulario)
+    {
+        <div class="panel">
+            <div class="panel-head"><h3>Datos del cliente</h3><span class="tag">Nuevo</span></div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Razón social</label>
+                    <input @bind="nuevoRazonSocial" type="text" placeholder="Ej. Retail Sur SpA" />
+                </div>
+                <div class="form-field">
+                    <label>RUT</label>
+                    <input @bind="nuevoRUT" type="text" placeholder="76.123.456-7" />
+                </div>
+                <div class="form-field">
+                    <label>Contacto — nombre</label>
+                    <input @bind="nuevoContactoNombre" type="text" />
+                </div>
+                <div class="form-field">
+                    <label>Contacto — correo</label>
+                    <input @bind="nuevoContactoCorreo" type="email" />
+                </div>
+                <div class="form-field">
+                    <label>Contacto — teléfono</label>
+                    <input @bind="nuevoContactoTelefono" type="text" />
+                </div>
+            </div>
+            @if (error is not null)
+            {
+                <p class="text-danger" style="padding:0 20px;">@error</p>
+            }
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+                <button class="btn-primary" @onclick="CrearCliente">Crear cliente</button>
+            </div>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="panel-head"><h3>Clientes</h3><span class="tag">@clientes.Count clientes</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Razón social</th><th>RUT</th><th>Contacto</th><th>Estado</th><th class="col-actions"></th></tr></thead>
+                <tbody>
+                    @foreach (var c in clientes)
+                    {
+                        <tr>
+                            <td><button class="row-code" @onclick="() => AbrirCliente(c.Id)">@c.RazonSocial</button></td>
+                            <td>@c.RUT</td>
+                            <td>@(c.ContactoNombre ?? "—")</td>
+                            <td>@if (c.Estado == "Activo") { <span class="pill ok">Activo</span> } else { <span class="pill warn">Inactivo</span> }</td>
+                            <td class="col-actions">
+                                <div class="row-actions">
+                                    @if (c.Estado == "Activo")
+                                    {
+                                        <button class="row-icon-btn danger" title="Desactivar" @onclick="() => DesactivarCliente(c.Id)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-trash" /></svg>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="row-icon-btn" title="Activar" @onclick="() => ActivarCliente(c.Id)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (clienteActual is not null)
+{
+    <div class="page-head">
+        <div>
+            <div class="breadcrumb"><b>Admin</b> / <a href="/Admin/Clientes">Clientes</a> / @clienteActual.RazonSocial</div>
+            <h1>@clienteActual.RazonSocial</h1>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Datos del cliente</h3><span class="tag">@clienteActual.Estado</span></div>
+        <div class="form-grid">
+            <div class="form-field"><label>Razón social</label><input @bind="clienteActual.RazonSocial" type="text" /></div>
+            <div class="form-field"><label>RUT</label><input @bind="clienteActual.RUT" type="text" /></div>
+            <div class="form-field"><label>Contacto — nombre</label><input @bind="clienteActual.ContactoNombre" type="text" /></div>
+            <div class="form-field"><label>Contacto — correo</label><input @bind="clienteActual.ContactoCorreo" type="email" /></div>
+            <div class="form-field"><label>Contacto — teléfono</label><input @bind="clienteActual.ContactoTelefono" type="text" /></div>
+            <div class="form-field">
+                <label>Estado</label>
+                <select @bind="clienteActual.Estado">
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" @onclick="GuardarCliente">Guardar cambios</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Sucursales</h3><span class="tag">@sucursales.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>Dirección</th><th>Contacto responsable</th><th>Estado</th><th class="col-actions"></th></tr></thead>
+                <tbody>
+                    @foreach (var s in sucursales)
+                    {
+                        <tr>
+                            <td><button class="row-code" @onclick="() => EditarSucursal(s)">@s.Nombre</button></td>
+                            <td class="wrap">@s.Direccion</td>
+                            <td>@(s.ContactoResponsableNombre ?? "—")</td>
+                            <td>@if (s.Estado == "Activo") { <span class="pill ok">Activo</span> } else { <span class="pill warn">Inactivo</span> }</td>
+                            <td class="col-actions">
+                                <div class="row-actions">
+                                    @if (s.Estado == "Activo")
+                                    {
+                                        <button class="row-icon-btn danger" title="Desactivar" @onclick="() => DesactivarSucursal(s)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-trash" /></svg>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="row-icon-btn" title="Activar" @onclick="() => ActivarSucursal(s)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (sucursales.Count == 0)
+                    {
+                        <tr><td colspan="5" style="color:var(--ink-faint);">Sin sucursales registradas todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div style="padding:14px 20px;">
+            <button class="table-action" @onclick="MostrarFormNuevaSucursal">+ Agregar sucursal</button>
+        </div>
+        @if (mostrandoFormSucursal)
+        {
+            <div class="panel-head" style="border-top:1px solid var(--line);"><h3>@(sucursalEditandoId is null ? "Nueva sucursal" : "Editar sucursal")</h3></div>
+            <div class="form-grid">
+                <div class="form-field"><label>Nombre</label><input @bind="formSucursalNombre" type="text" placeholder="Ej. Planta Renca" /></div>
+                <div class="form-field"><label>Dirección</label><input @bind="formSucursalDireccion" type="text" /></div>
+                <div class="form-field"><label>Contacto responsable — nombre</label><input @bind="formSucursalContactoNombre" type="text" /></div>
+                <div class="form-field"><label>Contacto responsable — cargo</label><input @bind="formSucursalContactoCargo" type="text" /></div>
+                <div class="form-field"><label>Contacto responsable — correo</label><input @bind="formSucursalContactoCorreo" type="email" /></div>
+                <div class="form-field"><label>Contacto responsable — teléfono</label><input @bind="formSucursalContactoTelefono" type="text" /></div>
+                @if (sucursalEditandoId is not null)
+                {
+                    <div class="form-field">
+                        <label>Estado</label>
+                        <select @bind="formSucursalEstado">
+                            <option value="Activo">Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                }
+            </div>
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormSucursal = false">Cancelar</button>
+                <button class="btn-primary" @onclick="GuardarSucursal">@(sucursalEditandoId is null ? "Agregar sucursal" : "Guardar cambios")</button>
+            </div>
+        }
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Procesos de selección</h3></div>
+        <p class="panel-text" style="color:var(--ink-faint);">Sin procesos de selección todavía — Reclutamiento aún no tiene pantallas construidas.</p>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Contratos de servicio</h3></div>
+        <p class="panel-text" style="color:var(--ink-faint);">Sin contratos de servicio todavía — Remuneración aún no está construida.</p>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private List<ClientesService.ClienteResumen> clientes = [];
+    private Cliente? clienteActual;
+    private List<ClienteSucursal> sucursales = [];
+
+    private bool mostrandoFormulario;
+    private string nuevoRazonSocial = string.Empty;
+    private string nuevoRUT = string.Empty;
+    private string nuevoContactoNombre = string.Empty;
+    private string nuevoContactoCorreo = string.Empty;
+    private string nuevoContactoTelefono = string.Empty;
+    private string? error;
+
+    private bool mostrandoFormSucursal;
+    private int? sucursalEditandoId;
+    private string formSucursalNombre = string.Empty;
+    private string formSucursalDireccion = string.Empty;
+    private string formSucursalContactoNombre = string.Empty;
+    private string formSucursalContactoCargo = string.Empty;
+    private string formSucursalContactoCorreo = string.Empty;
+    private string formSucursalContactoTelefono = string.Empty;
+    private string formSucursalEstado = "Activo";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is null)
+        {
+            clientes = await ClientesService.ListarAsync();
+        }
+        else
+        {
+            clienteActual = await ClientesService.ObtenerAsync(Id.Value);
+            if (clienteActual is null)
+            {
+                NavigationManager.NavigateTo("/Admin/Clientes");
+                return;
+            }
+            sucursales = await ClientesService.ListarSucursalesAsync(Id.Value);
+        }
+    }
+
+    private void AbrirCliente(int id) => NavigationManager.NavigateTo($"/Admin/Clientes/{id}");
+
+    private async Task DesactivarCliente(int id) => await CambiarEstadoClienteEnLista(id, "Inactivo");
+    private async Task ActivarCliente(int id) => await CambiarEstadoClienteEnLista(id, "Activo");
+
+    private async Task CambiarEstadoClienteEnLista(int id, string estado)
+    {
+        var cliente = await ClientesService.ObtenerAsync(id);
+        if (cliente is null) return;
+        cliente.Estado = estado;
+        await ClientesService.ActualizarAsync(cliente);
+        clientes = await ClientesService.ListarAsync();
+    }
+
+    private async Task DesactivarSucursal(ClienteSucursal s) => await CambiarEstadoSucursal(s, "Inactivo");
+    private async Task ActivarSucursal(ClienteSucursal s) => await CambiarEstadoSucursal(s, "Activo");
+
+    private async Task CambiarEstadoSucursal(ClienteSucursal s, string estado)
+    {
+        s.Estado = estado;
+        await ClientesService.ActualizarSucursalAsync(s);
+        sucursales = await ClientesService.ListarSucursalesAsync(Id!.Value);
+    }
+
+    private async Task CrearCliente()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(nuevoRazonSocial) || string.IsNullOrWhiteSpace(nuevoRUT))
+        {
+            error = "Razón social y RUT son obligatorios.";
+            return;
+        }
+
+        try
+        {
+            var id = await ClientesService.CrearAsync(new Cliente
+            {
+                RazonSocial = nuevoRazonSocial.Trim(),
+                RUT = nuevoRUT.Trim(),
+                ContactoNombre = string.IsNullOrWhiteSpace(nuevoContactoNombre) ? null : nuevoContactoNombre.Trim(),
+                ContactoCorreo = string.IsNullOrWhiteSpace(nuevoContactoCorreo) ? null : nuevoContactoCorreo.Trim(),
+                ContactoTelefono = string.IsNullOrWhiteSpace(nuevoContactoTelefono) ? null : nuevoContactoTelefono.Trim(),
+            });
+            AbrirCliente(id);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            error = "Ya existe un cliente con ese RUT.";
+        }
+    }
+
+    private async Task GuardarCliente()
+    {
+        if (clienteActual is null) return;
+        await ClientesService.ActualizarAsync(clienteActual);
+    }
+
+    private void MostrarFormNuevaSucursal()
+    {
+        sucursalEditandoId = null;
+        formSucursalNombre = formSucursalDireccion = formSucursalContactoNombre = formSucursalContactoCargo = formSucursalContactoCorreo = formSucursalContactoTelefono = string.Empty;
+        formSucursalEstado = "Activo";
+        mostrandoFormSucursal = true;
+    }
+
+    private void EditarSucursal(ClienteSucursal s)
+    {
+        sucursalEditandoId = s.Id;
+        formSucursalNombre = s.Nombre;
+        formSucursalDireccion = s.Direccion;
+        formSucursalContactoNombre = s.ContactoResponsableNombre ?? string.Empty;
+        formSucursalContactoCargo = s.ContactoResponsableCargo ?? string.Empty;
+        formSucursalContactoCorreo = s.ContactoResponsableCorreo ?? string.Empty;
+        formSucursalContactoTelefono = s.ContactoResponsableTelefono ?? string.Empty;
+        formSucursalEstado = s.Estado;
+        mostrandoFormSucursal = true;
+    }
+
+    private async Task GuardarSucursal()
+    {
+        if (Id is null || string.IsNullOrWhiteSpace(formSucursalNombre) || string.IsNullOrWhiteSpace(formSucursalDireccion)) return;
+
+        if (sucursalEditandoId is null)
+        {
+            await ClientesService.CrearSucursalAsync(new ClienteSucursal
+            {
+                ClienteId = Id.Value,
+                Nombre = formSucursalNombre.Trim(),
+                Direccion = formSucursalDireccion.Trim(),
+                ContactoResponsableNombre = string.IsNullOrWhiteSpace(formSucursalContactoNombre) ? null : formSucursalContactoNombre.Trim(),
+                ContactoResponsableCargo = string.IsNullOrWhiteSpace(formSucursalContactoCargo) ? null : formSucursalContactoCargo.Trim(),
+                ContactoResponsableCorreo = string.IsNullOrWhiteSpace(formSucursalContactoCorreo) ? null : formSucursalContactoCorreo.Trim(),
+                ContactoResponsableTelefono = string.IsNullOrWhiteSpace(formSucursalContactoTelefono) ? null : formSucursalContactoTelefono.Trim(),
+            });
+        }
+        else
+        {
+            var existente = sucursales.First(s => s.Id == sucursalEditandoId.Value);
+            existente.Nombre = formSucursalNombre.Trim();
+            existente.Direccion = formSucursalDireccion.Trim();
+            existente.ContactoResponsableNombre = string.IsNullOrWhiteSpace(formSucursalContactoNombre) ? null : formSucursalContactoNombre.Trim();
+            existente.ContactoResponsableCargo = string.IsNullOrWhiteSpace(formSucursalContactoCargo) ? null : formSucursalContactoCargo.Trim();
+            existente.ContactoResponsableCorreo = string.IsNullOrWhiteSpace(formSucursalContactoCorreo) ? null : formSucursalContactoCorreo.Trim();
+            existente.ContactoResponsableTelefono = string.IsNullOrWhiteSpace(formSucursalContactoTelefono) ? null : formSucursalContactoTelefono.Trim();
+            existente.Estado = formSucursalEstado;
+            await ClientesService.ActualizarSucursalAsync(existente);
+        }
+
+        mostrandoFormSucursal = false;
+        sucursales = await ClientesService.ListarSucursalesAsync(Id.Value);
+    }
+}
