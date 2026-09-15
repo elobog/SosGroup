@@ -233,7 +233,7 @@
 ## Pendientes / a confirmar
 
 - Definir los módulos "exclusivos de SuperAdmin" (por ahora `SuperAdmin` y `Admin` tienen el mismo acceso a nivel de apps).
-- Detallar componente Perfil de Cargo (pantallas, quién puede crear/editar versiones).
-- Detallar componente Apertura (Módulo 1).
+- **✅ Resuelto (2026-09-15):** componentes Solicitud y Perfil de Cargo construidos y funcionando de punta a punta en QA — ver bitácora de esa fecha en [sosgroup.md](sosgroup.md#bitácora-de-sesiones). `CodigoSolicitud` se genera como `SOL-{año}-{NNNN}`; la aprobación de condición la ejecuta únicamente un usuario con el rol literal correspondiente (no `Admin`/`SuperAdmin` "en nombre de" otro rol).
+- Detallar componente Apertura (Módulo 1) — sigue pendiente, es el siguiente desarrollo natural ya que Solicitud y Perfil de Cargo están listos.
 - Detallar componente Validación (Módulo 2) — Atracción, Preselección y Evaluación ya están detallados arriba.
 - Módulos 3 (Selección) y 4 (Ingreso): sin definir, desarrollo futuro.
