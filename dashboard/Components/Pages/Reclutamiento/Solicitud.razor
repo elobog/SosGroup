@@ -1,0 +1,490 @@
+@page "/Reclutamiento/Solicitud"
+@page "/Reclutamiento/Solicitud/{Id:int}"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Supervisor Operaciones,Supervisor Administrativo,Reclutador")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using dashboard.Data
+@using dashboard.Models.Admin
+@using dashboard.Models.Reclutamiento
+@using SolicitudModel = dashboard.Models.Reclutamiento.Solicitud
+
+@inject SolicitudService SolicitudService
+@inject PerfilCargoService PerfilCargoService
+@inject ClientesService ClientesService
+@inject AccesoAppService AccesoService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Solicitud | SOS Group</PageTitle>
+
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Reclutamiento</b> / Solicitud</div>
+        <h1>@(Id is null ? "Solicitudes" : solicitudActual?.CodigoSolicitud ?? "Solicitud")</h1>
+    </div>
+</div>
+
+<SolicitudModuloTabs Activo="Solicitudes" />
+
+@if (Id is null)
+{
+    <div class="page-head" style="margin-bottom:14px;">
+        <div></div>
+        <div class="page-actions">
+            @if (puedeCrearSolicitud)
+            {
+                <button class="table-action" @onclick="AbrirFormulario">+ Nueva solicitud</button>
+            }
+        </div>
+    </div>
+
+    @if (mostrandoFormulario)
+    {
+        <div class="panel">
+            <div class="panel-head"><h3>Datos de la solicitud</h3><span class="tag">Nueva</span></div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Cliente</label>
+                    <select @bind="form.ClienteId" @bind:after="CambioClienteAsync">
+                        <option value="0">Seleccione…</option>
+                        @foreach (var c in clientesDisponibles)
+                        {
+                            <option value="@c.Id">@c.RazonSocial</option>
+                        }
+                    </select>
+                </div>
+
+                @if (form.ClienteId != 0)
+                {
+                    <div class="form-field">
+                        <label>Perfil de cargo</label>
+                        @if (perfilesVigentes.Count == 0)
+                        {
+                            <p style="font-size:12.5px; color:var(--ink-faint); margin:0;">
+                                Este cliente no tiene un perfil de cargo con condición vigente.
+                                <a class="link-btn" href="@($"/Reclutamiento/Solicitud/Perfiles?clienteId={form.ClienteId}")">+ Crear perfil de cargo</a>
+                            </p>
+                        }
+                        else
+                        {
+                            <select @bind="form.PerfilCargoVersionId">
+                                <option value="0">Seleccione…</option>
+                                @foreach (var p in perfilesVigentes)
+                                {
+                                    <option value="@p.PerfilCargoVersionId">@p.PerfilCargoNombre (@(p.RentaFija ?? "—"))</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                    <div class="form-field"><label>Fecha inicio de servicio</label><input @bind="form.FechaInicioServicio" type="date" /></div>
+                    <div class="form-field">
+                        <label>Sucursal</label>
+                        <select @bind="form.SucursalId">
+                            <option value="0">Otra dirección…</option>
+                            @foreach (var s in sucursalesCliente)
+                            {
+                                <option value="@s.Id">@s.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    @if (form.SucursalId == 0)
+                    {
+                        <div class="form-field"><label>Dirección de servicio</label><input @bind="form.DireccionServicio" type="text" /></div>
+                    }
+                    <div class="form-field">
+                        <label>Supervisor Operaciones</label>
+                        @if (soloMiCliente)
+                        {
+                            <input value="@nombreUsuario" disabled type="text" />
+                        }
+                        else
+                        {
+                            <select @bind="form.SupervisorId">
+                                <option value="">Seleccione…</option>
+                                @foreach (var s in supervisoresCliente)
+                                {
+                                    <option value="@s.UsuarioId">@s.Nombre</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                    <div class="form-field">
+                        <label>Reclutador</label>
+                        <select @bind="form.ReclutadorId">
+                            <option value="">Seleccione…</option>
+                            @foreach (var r in reclutadoresCliente)
+                            {
+                                <option value="@r.UsuarioId">@r.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-field"><label>Cantidad de personal solicitado</label><input @bind="form.CantidadPersonalSolicitado" type="number" min="1" /></div>
+                }
+            </div>
+            @if (error is not null)
+            {
+                <p class="text-danger" style="padding:0 20px;">@error</p>
+            }
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+                <button class="btn-primary" @onclick="CrearSolicitud">Crear solicitud</button>
+            </div>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="panel-head"><h3>Solicitudes</h3><span class="tag">@solicitudes.Count solicitudes</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Código</th><th>Cliente</th><th>Perfil de cargo</th><th>Fecha inicio servicio</th><th>Supervisor</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @foreach (var s in solicitudes)
+                    {
+                        <tr>
+                            <td><button class="row-code @(s.Estado == "Activa" ? "ok" : "")" @onclick="() => AbrirSolicitud(s.Id)">@s.CodigoSolicitud</button></td>
+                            <td>@s.ClienteRazonSocial</td>
+                            <td>@s.PerfilCargoNombre</td>
+                            <td>@s.FechaInicioServicio.ToString("dd-MM-yyyy")</td>
+                            <td>@s.SupervisorNombre</td>
+                            <td>@if (s.Estado == "Activa") { <span class="pill ok">Activa</span> } else { <span class="pill pending">Cerrada</span> }</td>
+                        </tr>
+                    }
+                    @if (solicitudes.Count == 0)
+                    {
+                        <tr><td colspan="6" style="color:var(--ink-faint);">Sin solicitudes registradas todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (solicitudActual is not null)
+{
+    <div class="panel">
+        <div class="panel-head"><h3>Datos de la solicitud</h3><span class="pill @(solicitudActual.Estado == "Activa" ? "ok" : "pending")">@solicitudActual.Estado</span></div>
+        <div class="detail-grid">
+            <div><span class="detail-lbl">Cliente</span><span class="detail-val">@clienteNombre</span></div>
+            <div><span class="detail-lbl">Perfil de cargo</span><span class="detail-val">@perfilNombre</span></div>
+            <div><span class="detail-lbl">Supervisor Operaciones</span><span class="detail-val">@supervisorNombre</span></div>
+        </div>
+        <div class="form-grid">
+            <div class="form-field"><label>Fecha inicio de servicio</label><input @bind="solicitudActual.FechaInicioServicio" type="date" /></div>
+            <div class="form-field">
+                <label>Sucursal</label>
+                <select @bind="solicitudActual.SucursalId">
+                    <option value="">Otra dirección…</option>
+                    @foreach (var s in sucursalesCliente)
+                    {
+                        <option value="@s.Id">@s.Nombre</option>
+                    }
+                </select>
+            </div>
+            @if (solicitudActual.SucursalId is null)
+            {
+                <div class="form-field"><label>Dirección de servicio</label><input @bind="solicitudActual.DireccionServicio" type="text" /></div>
+            }
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" @onclick="GuardarSolicitud">Guardar cambios</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Rondas</h3><span class="tag">@rondas.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Reclutador</th><th>Cantidad</th><th>Fecha</th><th>Estado</th><th class="wrap">Observaciones</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in rondas)
+                    {
+                        <tr>
+                            <td>@NombreReclutador(r.ReclutadorId)</td>
+                            <td>@r.CantidadPersonalSolicitado</td>
+                            <td>@r.FechaSolicitud.ToString("dd-MM-yyyy")</td>
+                            <td>
+                                @if (r.Estado == "Cerrada") { <span class="pill pending">Cerrada</span> }
+                                else if (r.Estado == "EnProceso") { <span class="pill ok">En proceso</span> }
+                                else { <span class="pill warn">Pendiente</span> }
+                            </td>
+                            <td class="wrap">@(r.Observaciones ?? "—")</td>
+                            <td class="col-actions">
+                                @if (r.Estado == "Pendiente" && esReclutadorDeLaRonda(r))
+                                {
+                                    <button class="row-action-btn" @onclick="() => IniciarRonda(r.Id)">Iniciar</button>
+                                }
+                                else if (r.Estado == "EnProceso" && esReclutadorDeLaRonda(r))
+                                {
+                                    <button class="row-action-btn" @onclick="() => CerrarRonda(r.Id)">Cerrar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (rondas.Count == 0)
+                    {
+                        <tr><td colspan="6" style="color:var(--ink-faint);">Sin rondas registradas todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div style="padding:14px 20px;">
+            @if (puedeAgregarRonda)
+            {
+                <button class="table-action" @onclick="MostrarFormNuevaRonda">+ Agregar ronda</button>
+            }
+        </div>
+        @if (mostrandoFormRonda)
+        {
+            <div class="panel-head" style="border-top:1px solid var(--line);"><h3>Nueva ronda</h3></div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Reclutador</label>
+                    <select @bind="formRonda.ReclutadorId">
+                        <option value="">Seleccione…</option>
+                        @foreach (var r in reclutadoresCliente)
+                        {
+                            <option value="@r.UsuarioId">@r.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-field"><label>Cantidad de personal solicitado</label><input @bind="formRonda.CantidadPersonalSolicitado" type="number" min="1" /></div>
+                <div class="form-field"><label>Observaciones</label><input @bind="formRonda.Observaciones" type="text" /></div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormRonda = false">Cancelar</button>
+                <button class="btn-primary" @onclick="GuardarRonda">Agregar ronda</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private string usuarioId = string.Empty;
+    private string nombreUsuario = string.Empty;
+    private List<string> roles = [];
+    private bool esAdminLike => roles.Any(r => r is "SuperAdmin" or "Admin" or "Supervisor Administrativo");
+    private bool soloMiCliente => !esAdminLike && roles.Contains("Supervisor Operaciones");
+    private bool puedeCrearSolicitud => roles.Any(r => r is "SuperAdmin" or "Admin" or "Supervisor Operaciones");
+    private bool puedeAgregarRonda => puedeCrearSolicitud;
+
+    private List<SolicitudService.SolicitudResumen> solicitudes = [];
+    private List<ClientesService.ClienteResumen> clientesDisponibles = [];
+
+    private SolicitudModel? solicitudActual;
+    private List<SolicitudDetalle> rondas = [];
+    private List<ClienteSucursal> sucursalesCliente = [];
+    private List<ClientesService.UsuarioAsignado> reclutadoresCliente = [];
+    private List<ClientesService.UsuarioAsignado> supervisoresCliente = [];
+    private string clienteNombre = string.Empty;
+    private string perfilNombre = string.Empty;
+    private string supervisorNombre = string.Empty;
+
+    private bool mostrandoFormulario;
+    private NuevaSolicitudForm form = new();
+    private List<PerfilCargoService.VersionVigenteOpcion> perfilesVigentes = [];
+    private string? error;
+
+    private bool mostrandoFormRonda;
+    private NuevaRondaForm formRonda = new();
+
+    private class NuevaSolicitudForm
+    {
+        public int ClienteId { get; set; }
+        public int PerfilCargoVersionId { get; set; }
+        public DateTime FechaInicioServicio { get; set; } = DateTime.Today;
+        public int SucursalId { get; set; }
+        public string DireccionServicio { get; set; } = string.Empty;
+        public string SupervisorId { get; set; } = string.Empty;
+        public string ReclutadorId { get; set; } = string.Empty;
+        public int CantidadPersonalSolicitado { get; set; } = 1;
+    }
+
+    private class NuevaRondaForm
+    {
+        public string ReclutadorId { get; set; } = string.Empty;
+        public int CantidadPersonalSolicitado { get; set; } = 1;
+        public string Observaciones { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioId = UserManager.GetUserId(authState.User) ?? string.Empty;
+        var perfil = await AccesoService.ObtenerPerfilUsuarioAsync(usuarioId);
+        roles = perfil?.Roles ?? [];
+        nombreUsuario = perfil?.Nombre ?? string.Empty;
+    }
+
+    // "/Reclutamiento/Solicitud" y "/Reclutamiento/Solicitud/{Id:int}" resuelven al mismo componente:
+    // al navegar entre lista y ficha (ej. tras crear una solicitud), Blazor reutiliza la instancia en
+    // vez de recrearla, así que OnInitializedAsync no se vuelve a ejecutar. La carga que depende de
+    // Id tiene que vivir acá, que sí corre en cada cambio de parámetros.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is null)
+        {
+            solicitudes = await SolicitudService.ListarAsync(usuarioId, roles);
+
+            var todosClientes = (await ClientesService.ListarAsync()).Where(c => c.Estado == "Activo").ToList();
+            if (esAdminLike)
+            {
+                clientesDisponibles = todosClientes;
+            }
+            else
+            {
+                var asignados = (await SolicitudService.ListarClientesAsignadosAsync(usuarioId, roles)).ToHashSet();
+                clientesDisponibles = todosClientes.Where(c => asignados.Contains(c.Id)).ToList();
+            }
+        }
+        else
+        {
+            await CargarFichaAsync(Id.Value);
+        }
+    }
+
+    private async Task CargarFichaAsync(int id)
+    {
+        solicitudActual = await SolicitudService.ObtenerAsync(id);
+        if (solicitudActual is null)
+        {
+            NavigationManager.NavigateTo("/Reclutamiento/Solicitud", forceLoad: true);
+            return;
+        }
+
+        rondas = await SolicitudService.ListarRondasAsync(id);
+        sucursalesCliente = (await ClientesService.ListarSucursalesAsync(solicitudActual.ClienteId)).Where(s => s.Estado == "Activo").ToList();
+        reclutadoresCliente = await ClientesService.ListarReclutadoresAsync(solicitudActual.ClienteId);
+        supervisoresCliente = await ClientesService.ListarSupervisoresAsync(solicitudActual.ClienteId);
+
+        var cliente = await ClientesService.ObtenerAsync(solicitudActual.ClienteId);
+        clienteNombre = cliente?.RazonSocial ?? "—";
+        perfilNombre = await PerfilCargoService.ObtenerNombrePorVersionAsync(solicitudActual.PerfilCargoVersionId) ?? "—";
+        supervisorNombre = supervisoresCliente.FirstOrDefault(s => s.UsuarioId == solicitudActual.SupervisorId)?.Nombre ?? "—";
+    }
+
+    private string NombreReclutador(string reclutadorId) => reclutadoresCliente.FirstOrDefault(r => r.UsuarioId == reclutadorId)?.Nombre ?? "—";
+
+    private bool esReclutadorDeLaRonda(SolicitudDetalle ronda) =>
+        roles.Any(r => r is "SuperAdmin" or "Admin") || (roles.Contains("Reclutador") && ronda.ReclutadorId == usuarioId);
+
+    // forceLoad: true porque lista y ficha son el mismo componente Razor (misma ruta base) — sin esto,
+    // Blazor reutiliza la instancia sin volver a evaluar el parámetro Id ni recargar el resto del estado.
+    private void AbrirSolicitud(int id) => NavigationManager.NavigateTo($"/Reclutamiento/Solicitud/{id}", forceLoad: true);
+
+    private void AbrirFormulario()
+    {
+        form = new NuevaSolicitudForm();
+        if (soloMiCliente) form.SupervisorId = usuarioId;
+        mostrandoFormulario = true;
+        error = null;
+        perfilesVigentes = [];
+        sucursalesCliente = [];
+        reclutadoresCliente = [];
+        supervisoresCliente = [];
+    }
+
+    private async Task CambioClienteAsync()
+    {
+        if (form.ClienteId == 0)
+        {
+            perfilesVigentes = [];
+            sucursalesCliente = [];
+            reclutadoresCliente = [];
+            supervisoresCliente = [];
+            return;
+        }
+
+        perfilesVigentes = await PerfilCargoService.ListarVigentesPorClienteAsync(form.ClienteId);
+        sucursalesCliente = (await ClientesService.ListarSucursalesAsync(form.ClienteId)).Where(s => s.Estado == "Activo").ToList();
+        reclutadoresCliente = await ClientesService.ListarReclutadoresAsync(form.ClienteId);
+        supervisoresCliente = await ClientesService.ListarSupervisoresAsync(form.ClienteId);
+
+        if (reclutadoresCliente.Count == 1) form.ReclutadorId = reclutadoresCliente[0].UsuarioId;
+        if (!soloMiCliente && supervisoresCliente.Count == 1) form.SupervisorId = supervisoresCliente[0].UsuarioId;
+    }
+
+    private async Task CrearSolicitud()
+    {
+        error = null;
+        if (form.ClienteId == 0 || form.PerfilCargoVersionId == 0 || string.IsNullOrWhiteSpace(form.SupervisorId) ||
+            string.IsNullOrWhiteSpace(form.ReclutadorId) || form.CantidadPersonalSolicitado < 1)
+        {
+            error = "Complete cliente, perfil de cargo, supervisor, reclutador y cantidad de personal.";
+            return;
+        }
+        if (form.SucursalId == 0 && string.IsNullOrWhiteSpace(form.DireccionServicio))
+        {
+            error = "Indique una sucursal o una dirección de servicio.";
+            return;
+        }
+
+        var id = await SolicitudService.CrearAsync(
+            new SolicitudModel
+            {
+                ClienteId = form.ClienteId,
+                PerfilCargoVersionId = form.PerfilCargoVersionId,
+                FechaInicioServicio = form.FechaInicioServicio,
+                SucursalId = form.SucursalId == 0 ? null : form.SucursalId,
+                DireccionServicio = form.SucursalId == 0 ? form.DireccionServicio.Trim() : null,
+                SupervisorId = form.SupervisorId,
+            },
+            new SolicitudDetalle
+            {
+                ReclutadorId = form.ReclutadorId,
+                CantidadPersonalSolicitado = form.CantidadPersonalSolicitado,
+            });
+
+        AbrirSolicitud(id);
+    }
+
+    private async Task GuardarSolicitud()
+    {
+        if (solicitudActual is null) return;
+        if (solicitudActual.SucursalId is null && string.IsNullOrWhiteSpace(solicitudActual.DireccionServicio))
+        {
+            error = "Indique una sucursal o una dirección de servicio.";
+            return;
+        }
+        await SolicitudService.ActualizarAsync(solicitudActual);
+    }
+
+    private async Task IniciarRonda(int rondaId)
+    {
+        await SolicitudService.ActualizarEstadoRondaAsync(rondaId, "EnProceso");
+        if (Id is not null) await CargarFichaAsync(Id.Value);
+    }
+
+    private async Task CerrarRonda(int rondaId)
+    {
+        await SolicitudService.ActualizarEstadoRondaAsync(rondaId, "Cerrada");
+        if (Id is not null) await CargarFichaAsync(Id.Value);
+    }
+
+    private void MostrarFormNuevaRonda()
+    {
+        formRonda = new NuevaRondaForm();
+        if (reclutadoresCliente.Count == 1) formRonda.ReclutadorId = reclutadoresCliente[0].UsuarioId;
+        mostrandoFormRonda = true;
+    }
+
+    private async Task GuardarRonda()
+    {
+        if (Id is null || string.IsNullOrWhiteSpace(formRonda.ReclutadorId) || formRonda.CantidadPersonalSolicitado < 1) return;
+
+        await SolicitudService.AgregarRondaAsync(Id.Value, new SolicitudDetalle
+        {
+            ReclutadorId = formRonda.ReclutadorId,
+            CantidadPersonalSolicitado = formRonda.CantidadPersonalSolicitado,
+            Observaciones = string.IsNullOrWhiteSpace(formRonda.Observaciones) ? null : formRonda.Observaciones.Trim(),
+        });
+
+        mostrandoFormRonda = false;
+        await CargarFichaAsync(Id.Value);
+    }
+}

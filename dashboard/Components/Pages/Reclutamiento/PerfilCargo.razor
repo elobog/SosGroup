@@ -1,0 +1,376 @@
+@page "/Reclutamiento/Solicitud/Perfiles"
+@page "/Reclutamiento/Solicitud/Perfiles/{Id:int}"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Supervisor Operaciones,Supervisor Administrativo,Reclutador")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using dashboard.Data
+@using dashboard.Models.Reclutamiento
+@using PerfilCargoModel = dashboard.Models.Reclutamiento.PerfilCargo
+
+@inject PerfilCargoService PerfilCargoService
+@inject ClientesService ClientesService
+@inject AccesoAppService AccesoService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Perfiles de cargo | SOS Group</PageTitle>
+
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Reclutamiento</b> / Solicitud</div>
+        <h1>@(Id is null ? "Perfiles de cargo" : perfilActual?.Nombre ?? "Perfil de cargo")</h1>
+    </div>
+</div>
+
+<SolicitudModuloTabs Activo="Perfiles" />
+
+@if (Id is null)
+{
+    @if (creadoDesdeClienteId is not null && !mostrandoFormulario)
+    {
+        <div class="panel">
+            <div class="panel-head"><h3>Perfil creado</h3></div>
+            <p class="panel-text" style="padding:0 20px 18px;">
+                El perfil quedó pendiente de aprobación de <b>Supervisor Operaciones</b> y <b>Supervisor Administrativo</b> — todavía no está disponible para usar en una solicitud.
+                <a class="link-btn" href="/Reclutamiento/Solicitud">← Volver a Nueva solicitud</a>
+            </p>
+        </div>
+    }
+
+    <div class="page-head" style="margin-bottom:14px;">
+        <div></div>
+        <div class="page-actions">
+            @if (puedeCrear)
+            {
+                <button class="table-action" @onclick="AbrirFormulario">+ Nuevo perfil de cargo</button>
+            }
+        </div>
+    </div>
+
+    @if (mostrandoFormulario)
+    {
+        <div class="panel">
+            <div class="panel-head"><h3>Datos del perfil de cargo</h3><span class="tag">Nuevo</span></div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Cliente</label>
+                    <select @bind="form.ClienteId" disabled="@(creadoDesdeClienteId is not null)">
+                        <option value="0">Seleccione…</option>
+                        @foreach (var c in clientes)
+                        {
+                            <option value="@c.Id">@c.RazonSocial</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-field"><label>Nombre del cargo</label><input @bind="form.Nombre" type="text" placeholder="Ej. Operario de bodega" /></div>
+                <div class="form-field"><label>Descripción</label><input @bind="form.Descripcion" type="text" /></div>
+                <div class="form-field"><label>Requisitos</label><input @bind="form.Requisitos" type="text" /></div>
+                <div class="form-field"><label>Renta fija</label><input @bind="form.RentaFija" type="text" placeholder="Ej. $650.000" /></div>
+                <div class="form-field"><label>Renta variable</label><input @bind="form.RentaVariable" type="text" /></div>
+                <div class="form-field"><label>Beneficios</label><input @bind="form.Beneficios" type="text" /></div>
+                <div class="form-field"><label>Fecha de vigencia</label><input @bind="form.FechaVigencia" type="date" /></div>
+            </div>
+            @if (error is not null)
+            {
+                <p class="text-danger" style="padding:0 20px;">@error</p>
+            }
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+                <button class="btn-primary" @onclick="CrearPerfil">Crear perfil de cargo</button>
+            </div>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="panel-head"><h3>Perfiles de cargo</h3><span class="tag">@perfiles.Count perfiles</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>Cliente</th><th>Estado</th><th>Condición vigente</th></tr></thead>
+                <tbody>
+                    @foreach (var p in perfiles)
+                    {
+                        <tr>
+                            <td><button class="row-code @(p.Estado == "Activo" ? "ok" : "")" @onclick="() => AbrirPerfil(p.Id)">@p.Nombre</button></td>
+                            <td>@p.ClienteRazonSocial</td>
+                            <td>@if (p.Estado == "Activo") { <span class="pill ok">Activo</span> } else { <span class="pill warn">Inactivo</span> }</td>
+                            <td>@(p.CondicionVigenteResumen ?? "—")</td>
+                        </tr>
+                    }
+                    @if (perfiles.Count == 0)
+                    {
+                        <tr><td colspan="4" style="color:var(--ink-faint);">Sin perfiles de cargo registrados todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (perfilActual is not null)
+{
+    <div class="panel">
+        <div class="panel-head"><h3>Datos del perfil</h3><span class="tag">@perfilActual.Estado</span></div>
+        <div class="form-grid">
+            <div class="form-field"><label>Nombre del cargo</label><input @bind="perfilActual.Nombre" type="text" /></div>
+            <div class="form-field"><label>Descripción</label><input @bind="perfilActual.Descripcion" type="text" /></div>
+            <div class="form-field"><label>Requisitos</label><input @bind="perfilActual.Requisitos" type="text" /></div>
+            <div class="form-field">
+                <label>Estado</label>
+                <select @bind="perfilActual.Estado">
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" @onclick="GuardarPerfil">Guardar cambios</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Historial de condiciones</h3><span class="tag">@versiones.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>N°</th><th>Renta fija</th><th>Renta variable</th><th>Beneficios</th><th>Vigencia desde</th><th>Estado</th>
+                        <th>Aprob. Operaciones</th><th>Aprob. Administrativo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in versiones)
+                    {
+                        <tr>
+                            <td>@v.Version.NumeroVersion</td>
+                            <td>@(v.Version.RentaFija ?? "—")</td>
+                            <td>@(v.Version.RentaVariable ?? "—")</td>
+                            <td class="wrap">@(v.Version.Beneficios ?? "—")</td>
+                            <td>@v.Version.FechaVigencia.ToString("dd-MM-yyyy")</td>
+                            <td>
+                                @if (v.Version.Estado == "Vigente") { <span class="pill ok">Vigente</span> }
+                                else if (v.Version.Estado == "Historica") { <span class="pill pending">Histórica</span> }
+                                else { <span class="pill warn">Pendiente</span> }
+                            </td>
+                            @foreach (var rol in PerfilCargoService.RolesAprobadores)
+                            {
+                                var aprobacion = v.Aprobaciones.FirstOrDefault(a => a.Rol == rol);
+                                <td class="access-check">
+                                    @if (aprobacion?.AprobadoPorUsuarioId is not null)
+                                    {
+                                        <span class="row-icon-btn ok" title="Aprobado">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-check" /></svg>
+                                        </span>
+                                    }
+                                    else if (roles.Contains(rol))
+                                    {
+                                        <button class="row-icon-btn" title="Aprobar como @rol" @onclick="() => Aprobar(v.Version.Id, rol)">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="row-icon-btn" title="Pendiente de @rol">
+                                            <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
+                                        </span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div style="padding:14px 20px;">
+            @if (hayVersionPendiente)
+            {
+                <p style="color:var(--ink-faint); font-size:13px;">Ya hay una condición pendiente de aprobación — no se puede agregar otra hasta que se resuelva.</p>
+            }
+            else if (puedeCrear)
+            {
+                <button class="table-action" @onclick="MostrarFormNuevaCondicion">+ Agregar condición</button>
+            }
+        </div>
+        @if (mostrandoFormCondicion)
+        {
+            <div class="panel-head" style="border-top:1px solid var(--line);"><h3>Nueva condición</h3></div>
+            <div class="form-grid">
+                <div class="form-field"><label>Renta fija</label><input @bind="formCondicion.RentaFija" type="text" /></div>
+                <div class="form-field"><label>Renta variable</label><input @bind="formCondicion.RentaVariable" type="text" /></div>
+                <div class="form-field"><label>Beneficios</label><input @bind="formCondicion.Beneficios" type="text" /></div>
+                <div class="form-field"><label>Fecha de vigencia</label><input @bind="formCondicion.FechaVigencia" type="date" /></div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormCondicion = false">Cancelar</button>
+                <button class="btn-primary" @onclick="GuardarCondicion">Agregar condición</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "clienteId")]
+    public int? ClienteIdQuery { get; set; }
+
+    private List<PerfilCargoService.PerfilCargoResumen> perfiles = [];
+    private List<ClientesService.ClienteResumen> clientes = [];
+    private PerfilCargoModel? perfilActual;
+    private List<PerfilCargoService.VersionConAprobaciones> versiones = [];
+    private bool hayVersionPendiente => versiones.Any(v => v.Version.Estado == "Pendiente");
+
+    private string usuarioId = string.Empty;
+    private List<string> roles = [];
+    private bool puedeCrear => roles.Any(r => r is "SuperAdmin" or "Admin" or "Reclutador");
+
+    private bool mostrandoFormulario;
+    private int? creadoDesdeClienteId;
+    private NuevoPerfilForm form = new();
+    private string? error;
+
+    private bool mostrandoFormCondicion;
+    private NuevaCondicionForm formCondicion = new();
+
+    private class NuevoPerfilForm
+    {
+        public int ClienteId { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public string Requisitos { get; set; } = string.Empty;
+        public string RentaFija { get; set; } = string.Empty;
+        public string RentaVariable { get; set; } = string.Empty;
+        public string Beneficios { get; set; } = string.Empty;
+        public DateTime FechaVigencia { get; set; } = DateTime.Today;
+    }
+
+    private class NuevaCondicionForm
+    {
+        public string RentaFija { get; set; } = string.Empty;
+        public string RentaVariable { get; set; } = string.Empty;
+        public string Beneficios { get; set; } = string.Empty;
+        public DateTime FechaVigencia { get; set; } = DateTime.Today;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioId = UserManager.GetUserId(authState.User) ?? string.Empty;
+        var perfil = await AccesoService.ObtenerPerfilUsuarioAsync(usuarioId);
+        roles = perfil?.Roles ?? [];
+    }
+
+    // "/Reclutamiento/Solicitud/Perfiles" y ".../Perfiles/{Id:int}" resuelven al mismo componente:
+    // al navegar entre lista y ficha, Blazor reutiliza la instancia en vez de recrearla, así que
+    // OnInitializedAsync no se vuelve a ejecutar. La carga que depende de Id vive acá.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is null)
+        {
+            perfiles = await PerfilCargoService.ListarAsync();
+            clientes = (await ClientesService.ListarAsync()).Where(c => c.Estado == "Activo").ToList();
+
+            if (ClienteIdQuery is not null && clientes.Any(c => c.Id == ClienteIdQuery))
+            {
+                creadoDesdeClienteId = ClienteIdQuery;
+                AbrirFormulario();
+                form.ClienteId = ClienteIdQuery.Value;
+            }
+        }
+        else
+        {
+            await CargarFichaAsync(Id.Value);
+        }
+    }
+
+    private async Task CargarFichaAsync(int id)
+    {
+        perfilActual = await PerfilCargoService.ObtenerAsync(id);
+        if (perfilActual is null)
+        {
+            NavigationManager.NavigateTo("/Reclutamiento/Solicitud/Perfiles", forceLoad: true);
+            return;
+        }
+        versiones = await PerfilCargoService.ListarVersionesAsync(id);
+    }
+
+    // forceLoad: true porque lista y ficha son el mismo componente Razor (misma ruta base) — sin esto,
+    // Blazor reutiliza la instancia sin volver a evaluar el parámetro Id ni recargar el resto del estado.
+    private void AbrirPerfil(int id) => NavigationManager.NavigateTo($"/Reclutamiento/Solicitud/Perfiles/{id}", forceLoad: true);
+
+    private void AbrirFormulario()
+    {
+        form = new NuevoPerfilForm();
+        mostrandoFormulario = true;
+        error = null;
+    }
+
+    private async Task CrearPerfil()
+    {
+        error = null;
+        if (form.ClienteId == 0 || string.IsNullOrWhiteSpace(form.Nombre))
+        {
+            error = "Cliente y nombre del cargo son obligatorios.";
+            return;
+        }
+
+        var id = await PerfilCargoService.CrearAsync(
+            new PerfilCargoModel
+            {
+                ClienteId = form.ClienteId,
+                Nombre = form.Nombre.Trim(),
+                Descripcion = string.IsNullOrWhiteSpace(form.Descripcion) ? null : form.Descripcion.Trim(),
+                Requisitos = string.IsNullOrWhiteSpace(form.Requisitos) ? null : form.Requisitos.Trim(),
+            },
+            new PerfilCargoVersion
+            {
+                RentaFija = string.IsNullOrWhiteSpace(form.RentaFija) ? null : form.RentaFija.Trim(),
+                RentaVariable = string.IsNullOrWhiteSpace(form.RentaVariable) ? null : form.RentaVariable.Trim(),
+                Beneficios = string.IsNullOrWhiteSpace(form.Beneficios) ? null : form.Beneficios.Trim(),
+                FechaVigencia = form.FechaVigencia,
+            });
+
+        mostrandoFormulario = false;
+        perfiles = await PerfilCargoService.ListarAsync();
+
+        if (creadoDesdeClienteId is null)
+        {
+            AbrirPerfil(id);
+        }
+    }
+
+    private async Task GuardarPerfil()
+    {
+        if (perfilActual is null) return;
+        await PerfilCargoService.ActualizarAsync(perfilActual);
+    }
+
+    private void MostrarFormNuevaCondicion()
+    {
+        formCondicion = new NuevaCondicionForm();
+        mostrandoFormCondicion = true;
+    }
+
+    private async Task GuardarCondicion()
+    {
+        if (Id is null) return;
+        await PerfilCargoService.AgregarCondicionAsync(Id.Value, new PerfilCargoVersion
+        {
+            RentaFija = string.IsNullOrWhiteSpace(formCondicion.RentaFija) ? null : formCondicion.RentaFija.Trim(),
+            RentaVariable = string.IsNullOrWhiteSpace(formCondicion.RentaVariable) ? null : formCondicion.RentaVariable.Trim(),
+            Beneficios = string.IsNullOrWhiteSpace(formCondicion.Beneficios) ? null : formCondicion.Beneficios.Trim(),
+            FechaVigencia = formCondicion.FechaVigencia,
+        });
+        mostrandoFormCondicion = false;
+        await CargarFichaAsync(Id.Value);
+    }
+
+    private async Task Aprobar(int versionId, string rol)
+    {
+        await PerfilCargoService.AprobarVersionAsync(versionId, rol, usuarioId);
+        if (Id is not null) await CargarFichaAsync(Id.Value);
+    }
+}

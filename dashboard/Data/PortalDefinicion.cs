@@ -14,6 +14,7 @@ public static class PortalDefinicion
     public static readonly Dictionary<string, HashSet<string>> ModulosConstruidos = new()
     {
         ["Admin"] = ["Clientes", "Usuarios", "Perfiles", "Accesos"],
+        ["Reclutamiento"] = ["Solicitud"],
     };
 
     public static readonly Dictionary<string, string> RutaModulo = new()
@@ -22,6 +23,7 @@ public static class PortalDefinicion
         ["Admin:Usuarios"] = "/Admin/Usuarios",
         ["Admin:Perfiles"] = "/Admin/Perfiles",
         ["Admin:Accesos"] = "/Admin/Accesos",
+        ["Reclutamiento:Solicitud"] = "/Reclutamiento/Solicitud",
     };
 
     public static string EtiquetaModulo(string app, string moduloId) =>

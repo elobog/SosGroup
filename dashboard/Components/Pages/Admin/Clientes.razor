@@ -7,8 +7,11 @@
 @using Microsoft.AspNetCore.Authorization
 @using dashboard.Data
 @using dashboard.Models.Admin
+@using dashboard.Models.Reclutamiento
 
 @inject ClientesService ClientesService
+@inject SolicitudService SolicitudService
+@inject PerfilCargoService PerfilCargoService
 @inject NavigationManager NavigationManager
 
 <PageTitle>Clientes | SOS Group</PageTitle>
@@ -199,8 +202,115 @@ else if (clienteActual is not null)
     </div>
 
     <div class="panel">
-        <div class="panel-head"><h3>Procesos de selección</h3></div>
-        <p class="panel-text" style="color:var(--ink-faint);">Sin procesos de selección todavía — Reclutamiento aún no tiene pantallas construidas.</p>
+        <div class="panel-head"><h3>Reclutadores asignados</h3><span class="tag">@reclutadoresAsignados.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>Correo</th><th class="col-actions"></th></tr></thead>
+                <tbody>
+                    @foreach (var r in reclutadoresAsignados)
+                    {
+                        <tr>
+                            <td>@r.Nombre</td>
+                            <td>@r.Correo</td>
+                            <td class="col-actions">
+                                <div class="row-actions">
+                                    <button class="row-icon-btn danger" title="Quitar" @onclick="() => QuitarReclutador(r.UsuarioId)">
+                                        <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-trash" /></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (reclutadoresAsignados.Count == 0)
+                    {
+                        <tr><td colspan="3" style="color:var(--ink-faint);">Sin reclutadores asignados todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="form-grid" style="padding-top:14px;">
+            <div class="form-field">
+                <label>Agregar reclutador</label>
+                <select @bind="reclutadorSeleccionado">
+                    <option value="">Seleccione…</option>
+                    @foreach (var u in reclutadoresDisponibles)
+                    {
+                        <option value="@u.UsuarioId">@u.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" @onclick="AgregarReclutador">Asignar</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Supervisores asignados</h3><span class="tag">@supervisoresAsignados.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>Correo</th><th class="col-actions"></th></tr></thead>
+                <tbody>
+                    @foreach (var s in supervisoresAsignados)
+                    {
+                        <tr>
+                            <td>@s.Nombre</td>
+                            <td>@s.Correo</td>
+                            <td class="col-actions">
+                                <div class="row-actions">
+                                    <button class="row-icon-btn danger" title="Quitar" @onclick="() => QuitarSupervisor(s.UsuarioId)">
+                                        <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-trash" /></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (supervisoresAsignados.Count == 0)
+                    {
+                        <tr><td colspan="3" style="color:var(--ink-faint);">Sin supervisores asignados todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="form-grid" style="padding-top:14px;">
+            <div class="form-field">
+                <label>Agregar supervisor</label>
+                <select @bind="supervisorSeleccionado">
+                    <option value="">Seleccione…</option>
+                    @foreach (var u in supervisoresDisponibles)
+                    {
+                        <option value="@u.UsuarioId">@u.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" @onclick="AgregarSupervisor">Asignar</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Procesos de selección</h3><span class="tag">@solicitudesCliente.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Código</th><th>Perfil de cargo</th><th>Fecha inicio servicio</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @foreach (var s in solicitudesCliente)
+                    {
+                        <tr>
+                            <td><a class="row-code @(s.Estado == "Activa" ? "ok" : "")" href="@($"/Reclutamiento/Solicitud/{s.Id}")">@s.CodigoSolicitud</a></td>
+                            <td>@perfilNombrePorVersion.GetValueOrDefault(s.PerfilCargoVersionId, "—")</td>
+                            <td>@s.FechaInicioServicio.ToString("dd-MM-yyyy")</td>
+                            <td>@if (s.Estado == "Activa") { <span class="pill ok">Activa</span> } else { <span class="pill pending">Cerrada</span> }</td>
+                        </tr>
+                    }
+                    @if (solicitudesCliente.Count == 0)
+                    {
+                        <tr><td colspan="4" style="color:var(--ink-faint);">Sin procesos de selección todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="panel">
@@ -225,6 +335,17 @@ else if (clienteActual is not null)
     private string nuevoContactoTelefono = string.Empty;
     private string? error;
 
+    private List<ClientesService.UsuarioAsignado> reclutadoresAsignados = [];
+    private List<ClientesService.UsuarioAsignado> reclutadoresDisponibles = [];
+    private string reclutadorSeleccionado = string.Empty;
+
+    private List<ClientesService.UsuarioAsignado> supervisoresAsignados = [];
+    private List<ClientesService.UsuarioAsignado> supervisoresDisponibles = [];
+    private string supervisorSeleccionado = string.Empty;
+
+    private List<Solicitud> solicitudesCliente = [];
+    private Dictionary<int, string> perfilNombrePorVersion = [];
+
     private bool mostrandoFormSucursal;
     private int? sucursalEditandoId;
     private string formSucursalNombre = string.Empty;
@@ -235,7 +356,10 @@ else if (clienteActual is not null)
     private string formSucursalContactoTelefono = string.Empty;
     private string formSucursalEstado = "Activo";
 
-    protected override async Task OnInitializedAsync()
+    // "/Admin/Clientes" y "/Admin/Clientes/{Id:int}" resuelven al mismo componente: al navegar entre
+    // lista y ficha (ej. al crear un cliente o clickear una fila) Blazor reutiliza la instancia en vez
+    // de recrearla, así que OnInitializedAsync no se vuelve a ejecutar — la carga tiene que vivir acá.
+    protected override async Task OnParametersSetAsync()
     {
         if (Id is null)
         {
@@ -246,14 +370,65 @@ else if (clienteActual is not null)
             clienteActual = await ClientesService.ObtenerAsync(Id.Value);
             if (clienteActual is null)
             {
-                NavigationManager.NavigateTo("/Admin/Clientes");
+                NavigationManager.NavigateTo("/Admin/Clientes", forceLoad: true);
                 return;
             }
             sucursales = await ClientesService.ListarSucursalesAsync(Id.Value);
+            await CargarAsignacionesYSolicitudesAsync(Id.Value);
         }
     }
 
-    private void AbrirCliente(int id) => NavigationManager.NavigateTo($"/Admin/Clientes/{id}");
+    private async Task CargarAsignacionesYSolicitudesAsync(int clienteId)
+    {
+        reclutadoresAsignados = await ClientesService.ListarReclutadoresAsync(clienteId);
+        var todosReclutadores = await ClientesService.ListarUsuariosPorRolAsync("Reclutador");
+        reclutadoresDisponibles = todosReclutadores.Where(u => reclutadoresAsignados.All(a => a.UsuarioId != u.UsuarioId)).ToList();
+
+        supervisoresAsignados = await ClientesService.ListarSupervisoresAsync(clienteId);
+        var todosSupervisores = await ClientesService.ListarUsuariosPorRolAsync("Supervisor Operaciones");
+        supervisoresDisponibles = todosSupervisores.Where(u => supervisoresAsignados.All(a => a.UsuarioId != u.UsuarioId)).ToList();
+
+        solicitudesCliente = await SolicitudService.ListarPorClienteAsync(clienteId);
+        perfilNombrePorVersion = [];
+        foreach (var versionId in solicitudesCliente.Select(s => s.PerfilCargoVersionId).Distinct())
+        {
+            perfilNombrePorVersion[versionId] = await PerfilCargoService.ObtenerNombrePorVersionAsync(versionId) ?? "—";
+        }
+    }
+
+    private async Task AgregarReclutador()
+    {
+        if (Id is null || string.IsNullOrWhiteSpace(reclutadorSeleccionado)) return;
+        await ClientesService.AsignarReclutadorAsync(Id.Value, reclutadorSeleccionado);
+        reclutadorSeleccionado = string.Empty;
+        await CargarAsignacionesYSolicitudesAsync(Id.Value);
+    }
+
+    private async Task QuitarReclutador(string usuarioId)
+    {
+        if (Id is null) return;
+        await ClientesService.QuitarReclutadorAsync(Id.Value, usuarioId);
+        await CargarAsignacionesYSolicitudesAsync(Id.Value);
+    }
+
+    private async Task AgregarSupervisor()
+    {
+        if (Id is null || string.IsNullOrWhiteSpace(supervisorSeleccionado)) return;
+        await ClientesService.AsignarSupervisorAsync(Id.Value, supervisorSeleccionado);
+        supervisorSeleccionado = string.Empty;
+        await CargarAsignacionesYSolicitudesAsync(Id.Value);
+    }
+
+    private async Task QuitarSupervisor(string usuarioId)
+    {
+        if (Id is null) return;
+        await ClientesService.QuitarSupervisorAsync(Id.Value, usuarioId);
+        await CargarAsignacionesYSolicitudesAsync(Id.Value);
+    }
+
+    // forceLoad: true porque lista y ficha son el mismo componente Razor (misma ruta base) — sin esto,
+    // Blazor reutiliza la instancia sin volver a evaluar el parámetro Id ni recargar el resto del estado.
+    private void AbrirCliente(int id) => NavigationManager.NavigateTo($"/Admin/Clientes/{id}", forceLoad: true);
 
     private async Task DesactivarCliente(int id) => await CambiarEstadoClienteEnLista(id, "Inactivo");
     private async Task ActivarCliente(int id) => await CambiarEstadoClienteEnLista(id, "Activo");

@@ -1,0 +1,12 @@
+<div class="subtabs">
+    <a class="subtab @(Activo == "Solicitudes" ? "active" : "")" href="/Reclutamiento/Solicitud">Solicitudes</a>
+    <a class="subtab @(Activo == "Perfiles" ? "active" : "")" href="/Reclutamiento/Solicitud/Perfiles">Perfiles de cargo</a>
+    <span class="subtab subtab-locked" title="Próximamente">
+        <svg width="13" height="13" viewBox="0 0 20 20"><use href="#i-lock" /></svg> Apertura
+    </span>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Activo { get; set; } = string.Empty;
+}
