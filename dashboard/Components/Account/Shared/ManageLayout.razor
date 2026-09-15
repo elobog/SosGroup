@@ -1,17 +1,17 @@
-﻿@inherits LayoutComponentBase
-@layout dashboard.Components.Layout.MainLayout
+@inherits LayoutComponentBase
+@layout dashboard.Components.Layout.AppShellLayout
 
-<h1>Manage your account</h1>
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Cuenta</b></div>
+        <h1>Mi cuenta</h1>
+        <p>Administra tu perfil, correo, contraseña y seguridad.</p>
+    </div>
+</div>
 
-<div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
-            <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
-            @Body
-        </div>
+<div class="manage-grid">
+    <ManageNavMenu />
+    <div class="manage-content">
+        @Body
     </div>
 </div>

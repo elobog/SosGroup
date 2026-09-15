@@ -1,34 +1,20 @@
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
 @using dashboard.Data
 
 @inject SignInManager<ApplicationUser> SignInManager
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email">Email</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Password</NavLink>
-    </li>
+<div class="manage-nav">
+    <NavLink class="manage-nav-item" href="Account/Manage" Match="NavLinkMatch.All">Perfil</NavLink>
+    <NavLink class="manage-nav-item" href="Account/Manage/Email">Correo</NavLink>
+    <NavLink class="manage-nav-item" href="Account/Manage/ChangePassword">Contraseña</NavLink>
     @if (hasExternalLogins)
     {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
-        </li>
+        <NavLink class="manage-nav-item" href="Account/Manage/ExternalLogins">Accesos externos</NavLink>
     }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData">Personal data</NavLink>
-    </li>
-</ul>
+    <NavLink class="manage-nav-item" href="Account/Manage/TwoFactorAuthentication">Verificación en dos pasos</NavLink>
+    <NavLink class="manage-nav-item" href="Account/Manage/Passkeys">Passkeys</NavLink>
+    <NavLink class="manage-nav-item" href="Account/Manage/PersonalData">Datos personales</NavLink>
+</div>
 
 @code {
     private bool hasExternalLogins;
