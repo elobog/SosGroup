@@ -8,6 +8,7 @@ public static class PortalDefinicion
     [
         ("Admin", [("Usuarios", "Usuarios"), ("Perfiles", "Perfiles"), ("Accesos", "Accesos"), ("Clientes", "Clientes"), ("CostosIA", "Costos IA")]),
         ("Reclutamiento", [("Solicitud", "Solicitud"), ("Preseleccion", "Preselección"), ("Seleccion", "Selección"), ("Ingreso", "Ingreso")]),
+        ("Remuneracion", [("PanelControl", "Panel de control"), ("BaseTalana", "Base Talana"), ("Contratos", "Contratos"), ("Calculo", "Cálculo"), ("Auditoria", "Auditoría")]),
     ];
 
     // Módulos con pantalla real construida — el resto se muestra bloqueado en el sidebar aunque el perfil tenga acceso.
@@ -15,6 +16,7 @@ public static class PortalDefinicion
     {
         ["Admin"] = ["Clientes", "Usuarios", "Perfiles", "Accesos"],
         ["Reclutamiento"] = ["Solicitud"],
+        ["Remuneracion"] = [],
     };
 
     public static readonly Dictionary<string, string> RutaModulo = new()
@@ -24,6 +26,13 @@ public static class PortalDefinicion
         ["Admin:Perfiles"] = "/Admin/Perfiles",
         ["Admin:Accesos"] = "/Admin/Accesos",
         ["Reclutamiento:Solicitud"] = "/Reclutamiento/Solicitud",
+    };
+
+    public static readonly Dictionary<string, string> EtiquetaApp = new()
+    {
+        ["Admin"] = "Admin",
+        ["Reclutamiento"] = "Reclutamiento",
+        ["Remuneracion"] = "Remuneración",
     };
 
     public static string EtiquetaModulo(string app, string moduloId) =>

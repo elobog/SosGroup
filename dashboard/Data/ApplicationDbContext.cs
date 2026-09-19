@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using dashboard.Models;
 using dashboard.Models.Admin;
 using dashboard.Models.Reclutamiento;
+using dashboard.Models.Remuneracion;
 
 namespace dashboard.Data;
 
@@ -41,6 +42,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<PostulanteHistorial> PostulanteHistoriales => Set<PostulanteHistorial>();
     public DbSet<PostulanteDocumento> PostulanteDocumentos => Set<PostulanteDocumento>();
     public DbSet<DocumentoExtraccionIA> DocumentosExtraccionIA => Set<DocumentoExtraccionIA>();
+
+    // ---- Remuneración ----
+    public DbSet<ContratoServicio> ContratosServicio => Set<ContratoServicio>();
+    public DbSet<EmpleadoTalana> EmpleadosTalana => Set<EmpleadoTalana>();
+    public DbSet<Calculo> Calculos => Set<Calculo>();
+    public DbSet<CalculoEmpleado> CalculosEmpleado => Set<CalculoEmpleado>();
+    public DbSet<CalculoEmpleadoDia> CalculosEmpleadoDia => Set<CalculoEmpleadoDia>();
+    public DbSet<AuditoriaEjecucion> AuditoriasEjecucion => Set<AuditoriaEjecucion>();
+    public DbSet<AuditoriaInconsistencia> AuditoriasInconsistencia => Set<AuditoriaInconsistencia>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -383,6 +393,82 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasKey(x => x.Id);
             e.Property(x => x.Estado).HasMaxLength(20).IsRequired();
             e.HasOne<PostulanteDocumento>().WithMany().HasForeignKey(x => x.PostulanteDocumentoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ===================== Remuneración =====================
+        builder.Entity<ContratoServicio>(e =>
+        {
+            e.ToTable("ContratoServicio", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.ClienteId);
+            e.HasIndex(x => x.Estado);
+            e.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Tipo).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            e.HasOne<Cliente>().WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<EmpleadoTalana>(e =>
+        {
+            e.ToTable("EmpleadoTalana", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.RUT).IsUnique();
+            e.HasIndex(x => x.ClienteId);
+            e.HasIndex(x => x.ContratoServicioId);
+            e.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
+            e.Property(x => x.RUT).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Cargo).HasMaxLength(150);
+            e.Property(x => x.EstadoTalana).HasMaxLength(20).IsRequired();
+            e.HasOne<Cliente>().WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<ContratoServicio>().WithMany().HasForeignKey(x => x.ContratoServicioId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Calculo>(e =>
+        {
+            e.ToTable("Calculo", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ContratoServicioId, x.Periodo }).IsUnique();
+            e.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            e.HasOne<ContratoServicio>().WithMany().HasForeignKey(x => x.ContratoServicioId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CalculoEmpleado>(e =>
+        {
+            e.ToTable("CalculoEmpleado", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.CalculoId, x.EmpleadoTalanaId }).IsUnique();
+            e.HasOne<Calculo>().WithMany().HasForeignKey(x => x.CalculoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<EmpleadoTalana>().WithMany().HasForeignKey(x => x.EmpleadoTalanaId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CalculoEmpleadoDia>(e =>
+        {
+            e.ToTable("CalculoEmpleadoDia", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.CalculoEmpleadoId, x.Fecha }).IsUnique();
+            e.Property(x => x.TipoJornada).HasMaxLength(20).IsRequired();
+            e.Property(x => x.HorasExtra).HasPrecision(5, 2);
+            e.HasOne<CalculoEmpleado>().WithMany().HasForeignKey(x => x.CalculoEmpleadoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AuditoriaEjecucion>(e =>
+        {
+            e.ToTable("AuditoriaEjecucion", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+        });
+
+        builder.Entity<AuditoriaInconsistencia>(e =>
+        {
+            e.ToTable("AuditoriaInconsistencia", schema: "Remuneracion");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.AuditoriaEjecucionId);
+            e.HasIndex(x => x.CalculoEmpleadoId);
+            e.Property(x => x.TipoInconsistencia).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Detalle).HasMaxLength(500).IsRequired();
+            e.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            e.HasOne<AuditoriaEjecucion>().WithMany().HasForeignKey(x => x.AuditoriaEjecucionId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CalculoEmpleado>().WithMany().HasForeignKey(x => x.CalculoEmpleadoId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

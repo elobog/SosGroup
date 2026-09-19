@@ -9,7 +9,7 @@
     @if (appActual is not null)
     {
         <div class="app-title">
-            <strong>@appActual</strong>
+            <strong>@PortalDefinicion.EtiquetaApp.GetValueOrDefault(appActual, appActual)</strong>
             <span>Módulos</span>
         </div>
         @foreach (var modulo in SeleccionState.Acceso.GetValueOrDefault(appActual, []))

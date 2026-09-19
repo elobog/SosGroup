@@ -16,7 +16,7 @@
     <nav class="app-links">
         @foreach (var app in appsHabilitadas)
         {
-            <button class="app-link @(app == SeleccionState.AppActual ? "active" : "")" @onclick="() => SeleccionState.Seleccionar(app)">@app</button>
+            <button class="app-link @(app == SeleccionState.AppActual ? "active" : "")" @onclick="() => SeleccionState.Seleccionar(app)">@PortalDefinicion.EtiquetaApp.GetValueOrDefault(app, app)</button>
         }
         @foreach (var app in AppsProximamente)
         {
@@ -59,7 +59,7 @@
 </div>
 
 @code {
-    private static readonly string[] AppsProximamente = ["Remuneración"];
+    private static readonly string[] AppsProximamente = [];
 
     private List<string> appsHabilitadas = [];
     private string nombreUsuario = string.Empty;
