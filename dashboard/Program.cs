@@ -48,6 +48,7 @@ builder.Services.AddScoped<AccesoAppService>();
 builder.Services.AddScoped<ClientesService>();
 builder.Services.AddScoped<PerfilCargoService>();
 builder.Services.AddScoped<SolicitudService>();
+builder.Services.AddScoped<ContratosService>();
 builder.Services.AddScoped<AppSeleccionState>();
 
 var app = builder.Build();

@@ -1,0 +1,236 @@
+@page "/Remuneracion/Contratos"
+@page "/Remuneracion/Contratos/{Id:int}"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Jefe Gestión")]
+
+@using Microsoft.AspNetCore.Authorization
+@using dashboard.Data
+@using dashboard.Models.Remuneracion
+
+@inject ContratosService ContratosService
+@inject ClientesService ClientesService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Contratos | SOS Group</PageTitle>
+
+@if (Id is null)
+{
+    <div class="page-head">
+        <div>
+            <div class="breadcrumb"><b>Remuneración</b> / Contratos</div>
+            <h1>Contratos</h1>
+            <p>Contratos de servicio homologados con Talana — base para la dotación y los cálculos mensuales.</p>
+        </div>
+        <div class="page-actions">
+            <button class="table-action" @onclick="() => mostrandoFormulario = !mostrandoFormulario">+ Crear contrato</button>
+        </div>
+    </div>
+
+    @if (mostrandoFormulario)
+    {
+        <div class="panel">
+            <div class="panel-head"><h3>Datos del contrato</h3><span class="tag">Nuevo</span></div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Cliente</label>
+                    <select @bind="nuevoClienteId">
+                        <option value="0">Seleccionar...</option>
+                        @foreach (var c in clientes)
+                        {
+                            <option value="@c.Id">@c.RazonSocial</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Nombre del contrato</label>
+                    <input @bind="nuevoNombre" type="text" placeholder="Ej. Outsourcing Bodega Norte" />
+                </div>
+                <div class="form-field">
+                    <label>Tipo</label>
+                    <select @bind="nuevoTipo">
+                        <option value="Outsourcing">Outsourcing</option>
+                        <option value="ServiciosTransitorios">Servicios Transitorios</option>
+                        <option value="SeleccionYReclutamiento">Selección y Reclutamiento</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Código Talana</label>
+                    <input @bind="nuevoCodigoTalana" type="text" placeholder="Código que identifica el contrato en Talana" />
+                </div>
+                <div class="form-field">
+                    <label>Fecha de inicio</label>
+                    <input @bind="nuevoFechaInicio" type="date" />
+                </div>
+            </div>
+            @if (error is not null)
+            {
+                <p class="text-danger" style="padding:0 20px;">@error</p>
+            }
+            <div class="form-actions">
+                <button class="btn-ghost" @onclick="() => mostrandoFormulario = false">Cancelar</button>
+                <button class="btn-primary" @onclick="CrearContrato">Crear contrato</button>
+            </div>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="panel-head"><h3>Contratos</h3><span class="tag">@contratos.Count contratos</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>Cliente</th><th>Tipo</th><th>Código Talana</th><th>Homologación</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @foreach (var c in contratos)
+                    {
+                        <tr>
+                            <td><button class="row-code" @onclick="() => AbrirContrato(c.Id)">@c.Nombre</button></td>
+                            <td>@c.ClienteRazonSocial</td>
+                            <td>@EtiquetaTipo(c.Tipo)</td>
+                            <td>@c.CodigoTalana</td>
+                            <td>@if (c.Homologado) { <span class="pill ok">Homologado</span> } else { <span class="pill warn">Pendiente</span> }</td>
+                            <td>@if (c.Estado == "Activo") { <span class="pill ok">Activo</span> } else { <span class="pill warn">Terminado</span> }</td>
+                        </tr>
+                    }
+                    @if (contratos.Count == 0)
+                    {
+                        <tr><td colspan="6" style="color:var(--ink-faint);">Sin contratos registrados todavía.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="access-note">La homologación se actualiza automáticamente al sincronizar con Talana (Base Talana) — pendiente de las credenciales de la API.</div>
+    </div>
+}
+else if (contratoActual is not null)
+{
+    <div class="page-head">
+        <div>
+            <div class="breadcrumb"><b>Remuneración</b> / <a href="/Remuneracion/Contratos">Contratos</a> / @contratoActual.Nombre</div>
+            <h1>@contratoActual.Nombre</h1>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Datos del contrato</h3><span class="tag">@(contratoActual.Homologado ? "Homologado" : "Pendiente de homologación")</span></div>
+        <div class="form-grid">
+            <div class="form-field">
+                <label>Cliente</label>
+                <select @bind="contratoActual.ClienteId">
+                    @foreach (var c in clientes)
+                    {
+                        <option value="@c.Id">@c.RazonSocial</option>
+                    }
+                </select>
+            </div>
+            <div class="form-field"><label>Nombre del contrato</label><input @bind="contratoActual.Nombre" type="text" /></div>
+            <div class="form-field">
+                <label>Tipo</label>
+                <select @bind="contratoActual.Tipo">
+                    <option value="Outsourcing">Outsourcing</option>
+                    <option value="ServiciosTransitorios">Servicios Transitorios</option>
+                    <option value="SeleccionYReclutamiento">Selección y Reclutamiento</option>
+                </select>
+            </div>
+            <div class="form-field"><label>Código Talana</label><input @bind="contratoActual.CodigoTalana" type="text" /></div>
+            <div class="form-field"><label>Fecha de inicio</label><input @bind="contratoActual.FechaInicio" type="date" /></div>
+            <div class="form-field">
+                <label>Estado</label>
+                <select @bind="contratoActual.Estado">
+                    <option value="Activo">Activo</option>
+                    <option value="Terminado">Terminado</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn-primary" @onclick="GuardarContrato">Guardar cambios</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Dotación</h3></div>
+        <p class="panel-text" style="color:var(--ink-faint);">Sin dotación todavía — depende de la sincronización con Base Talana.</p>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Historial de cálculos</h3></div>
+        <p class="panel-text" style="color:var(--ink-faint);">Sin cálculos todavía — el módulo Cálculo aún no está construido.</p>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private List<ContratosService.ContratoResumen> contratos = [];
+    private List<ClientesService.ClienteResumen> clientes = [];
+    private ContratoServicio? contratoActual;
+
+    private bool mostrandoFormulario;
+    private int nuevoClienteId;
+    private string nuevoNombre = string.Empty;
+    private string nuevoTipo = "Outsourcing";
+    private string nuevoCodigoTalana = string.Empty;
+    private DateOnly nuevoFechaInicio = DateOnly.FromDateTime(DateTime.Today);
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clientes = await ClientesService.ListarAsync();
+
+        if (Id is null)
+        {
+            contratos = await ContratosService.ListarAsync();
+        }
+        else
+        {
+            contratoActual = await ContratosService.ObtenerAsync(Id.Value);
+            if (contratoActual is null)
+            {
+                NavigationManager.NavigateTo("/Remuneracion/Contratos");
+            }
+        }
+    }
+
+    private void AbrirContrato(int id) => NavigationManager.NavigateTo($"/Remuneracion/Contratos/{id}");
+
+    private static string EtiquetaTipo(string tipo) => tipo switch
+    {
+        "Outsourcing" => "Outsourcing",
+        "ServiciosTransitorios" => "Servicios Transitorios",
+        "SeleccionYReclutamiento" => "Selección y Reclutamiento",
+        _ => tipo,
+    };
+
+    private async Task CrearContrato()
+    {
+        error = null;
+        if (nuevoClienteId == 0 || string.IsNullOrWhiteSpace(nuevoNombre) || string.IsNullOrWhiteSpace(nuevoCodigoTalana))
+        {
+            error = "Cliente, nombre y código Talana son obligatorios.";
+            return;
+        }
+
+        try
+        {
+            var id = await ContratosService.CrearAsync(new ContratoServicio
+            {
+                ClienteId = nuevoClienteId,
+                Nombre = nuevoNombre.Trim(),
+                Tipo = nuevoTipo,
+                CodigoTalana = nuevoCodigoTalana.Trim(),
+                FechaInicio = nuevoFechaInicio,
+            });
+            AbrirContrato(id);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            error = "Ya existe un contrato con ese código Talana.";
+        }
+    }
+
+    private async Task GuardarContrato()
+    {
+        if (contratoActual is null) return;
+        await ContratosService.ActualizarAsync(contratoActual);
+    }
+}
