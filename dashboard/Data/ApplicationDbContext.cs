@@ -357,6 +357,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne<Cliente>().WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Solicitud>().WithMany().HasForeignKey(x => x.SolicitudId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Postulante>().WithMany().HasForeignKey(x => x.PostulanteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<PerfilCargoVersion>().WithMany().HasForeignKey(x => x.PerfilCargoVersionId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.ReclutadorId).OnDelete(DeleteBehavior.Restrict);
         });
 
