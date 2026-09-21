@@ -22,6 +22,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<PerfilCargo> PerfilesCargo => Set<PerfilCargo>();
     public DbSet<PerfilCargoVersion> PerfilCargoVersiones => Set<PerfilCargoVersion>();
     public DbSet<PerfilCargoVersionAprobacion> PerfilCargoVersionAprobaciones => Set<PerfilCargoVersionAprobacion>();
+    public DbSet<PerfilCargoFuncionCategoria> PerfilCargoFuncionCategorias => Set<PerfilCargoFuncionCategoria>();
+    public DbSet<PerfilCargoFuncionTarea> PerfilCargoFuncionTareas => Set<PerfilCargoFuncionTarea>();
+    public DbSet<PerfilCargoDocumentoOriginal> PerfilCargoDocumentosOriginal => Set<PerfilCargoDocumentoOriginal>();
     public DbSet<Solicitud> Solicitudes => Set<Solicitud>();
     public DbSet<SolicitudDetalle> SolicitudDetalles => Set<SolicitudDetalle>();
     public DbSet<ClienteReclutador> ClienteReclutadores => Set<ClienteReclutador>();
@@ -144,8 +147,41 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.Property(x => x.RentaFija).HasMaxLength(100);
             e.Property(x => x.RentaVariable).HasMaxLength(200);
             e.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Area).HasMaxLength(100);
+            e.Property(x => x.ReportaA).HasMaxLength(150);
+            e.Property(x => x.EducacionMinima).HasMaxLength(100);
+            e.Property(x => x.OrigenDocumento).HasMaxLength(20).IsRequired();
             e.HasOne<PerfilCargo>().WithMany().HasForeignKey(x => x.PerfilCargoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<PerfilCargoVersion>().WithMany().HasForeignKey(x => x.VersionBaseId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PerfilCargoFuncionCategoria>(e =>
+        {
+            e.ToTable("PerfilCargoFuncionCategoria", schema: "Reclutamiento");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.PerfilCargoVersionId);
+            e.Property(x => x.Nombre).HasMaxLength(150).IsRequired();
+            e.HasOne<PerfilCargoVersion>().WithMany().HasForeignKey(x => x.PerfilCargoVersionId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PerfilCargoFuncionTarea>(e =>
+        {
+            e.ToTable("PerfilCargoFuncionTarea", schema: "Reclutamiento");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.PerfilCargoFuncionCategoriaId);
+            e.Property(x => x.Descripcion).HasMaxLength(500).IsRequired();
+            e.HasOne<PerfilCargoFuncionCategoria>().WithMany().HasForeignKey(x => x.PerfilCargoFuncionCategoriaId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PerfilCargoDocumentoOriginal>(e =>
+        {
+            e.ToTable("PerfilCargoDocumentoOriginal", schema: "Reclutamiento");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.PerfilCargoVersionId);
+            e.Property(x => x.NombreArchivo).HasMaxLength(200).IsRequired();
+            e.Property(x => x.RutaBlob).HasMaxLength(500).IsRequired();
+            e.HasOne<PerfilCargoVersion>().WithMany().HasForeignKey(x => x.PerfilCargoVersionId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.CargadoPorUsuarioId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<PerfilCargoVersionAprobacion>(e =>
