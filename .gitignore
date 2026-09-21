@@ -6,3 +6,4 @@ publish/
 *.user
 appsettings.*.json.user
 .DS_Store
+__pycache__/
