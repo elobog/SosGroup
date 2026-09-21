@@ -67,7 +67,12 @@ public class PerfilCargoService(IDbContextFactory<ApplicationDbContext> dbFactor
         return versiones.Select(v => new VersionConAprobaciones(v, aprobaciones.Where(a => a.PerfilCargoVersionId == v.Id).ToList())).ToList();
     }
 
-    public async Task<int> CrearAsync(PerfilCargo perfil, PerfilCargoVersion primeraVersion)
+    public async Task<int> CrearAsync(
+        PerfilCargo perfil,
+        PerfilCargoVersion primeraVersion,
+        List<FuncionCategoriaInput> funciones,
+        (string NombreArchivo, string RutaBlob)? documentoOriginal,
+        string usuarioId)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -85,8 +90,22 @@ public class PerfilCargoService(IDbContextFactory<ApplicationDbContext> dbFactor
         {
             db.PerfilCargoVersionAprobaciones.Add(new PerfilCargoVersionAprobacion { PerfilCargoVersionId = primeraVersion.Id, Rol = rol });
         }
-        await db.SaveChangesAsync();
 
+        await GuardarFuncionesAsync(db, primeraVersion.Id, funciones);
+
+        if (documentoOriginal is not null)
+        {
+            db.PerfilCargoDocumentosOriginal.Add(new PerfilCargoDocumentoOriginal
+            {
+                PerfilCargoVersionId = primeraVersion.Id,
+                NombreArchivo = documentoOriginal.Value.NombreArchivo,
+                RutaBlob = documentoOriginal.Value.RutaBlob,
+                CargadoPorUsuarioId = usuarioId,
+                FechaCarga = DateTime.UtcNow,
+            });
+        }
+
+        await db.SaveChangesAsync();
         await tx.CommitAsync();
         return perfil.Id;
     }

@@ -58,6 +58,7 @@
     {
         <div class="panel">
             <div class="panel-head"><h3>Datos del perfil de cargo</h3><span class="tag">Nuevo</span></div>
+
             <div class="form-grid">
                 <div class="form-field">
                     <label>Cliente</label>
@@ -72,11 +73,68 @@
                 <div class="form-field"><label>Nombre del cargo</label><input @bind="form.Nombre" type="text" placeholder="Ej. Operario de bodega" /></div>
                 <div class="form-field"><label>Descripción</label><input @bind="form.Descripcion" type="text" /></div>
                 <div class="form-field"><label>Requisitos</label><input @bind="form.Requisitos" type="text" /></div>
+                <div class="form-field"><label>Fecha de vigencia</label><input @bind="form.FechaVigencia" type="date" /></div>
+            </div>
+
+            <div style="padding:0 20px 18px;">
+                <p class="panel-text" style="margin-bottom:8px;">
+                    Si el cliente ya entregó un documento con el perfil de cargo, cárguelo acá para precompletar los
+                    campos automáticamente con IA — luego revíselos antes de guardar. Debe seleccionar el cliente primero.
+                </p>
+                <InputFile OnChange="CargarYAnalizar" accept=".pdf" disabled="@(analizando || form.ClienteId == 0)" />
+                @if (analizando)
+                {
+                    <p class="panel-text" style="margin-top:8px;">Analizando documento…</p>
+                }
+                @if (errorAnalisis is not null)
+                {
+                    <p class="text-danger" style="margin-top:8px;">@errorAnalisis</p>
+                }
+                @if (usoDocumentoIA && archivoAnalizadoNombre is not null)
+                {
+                    <p class="panel-text" style="margin-top:8px;">
+                        <span class="pill ok">Analizado con IA</span> @archivoAnalizadoNombre — revise los campos antes de guardar.
+                    </p>
+                }
+            </div>
+
+            <div class="form-grid">
                 <div class="form-field"><label>Renta fija</label><input @bind="form.RentaFija" type="text" placeholder="Ej. $650.000" /></div>
                 <div class="form-field"><label>Renta variable</label><input @bind="form.RentaVariable" type="text" /></div>
                 <div class="form-field"><label>Beneficios</label><input @bind="form.Beneficios" type="text" /></div>
-                <div class="form-field"><label>Fecha de vigencia</label><input @bind="form.FechaVigencia" type="date" /></div>
+                <div class="form-field"><label>Área</label><input @bind="form.Area" type="text" /></div>
+                <div class="form-field"><label>Reporta a</label><input @bind="form.ReportaA" type="text" /></div>
+                <div class="form-field"><label>Educación mínima</label><input @bind="form.EducacionMinima" type="text" /></div>
+                <div class="form-field"><label>Años de experiencia mínimo</label><input @bind="form.AniosExperienciaMinimo" type="number" min="0" /></div>
+                <div class="form-field" style="grid-column:1/-1;"><label>Objetivo del cargo</label><input @bind="form.ObjetivoCargo" type="text" /></div>
+                <div class="form-field" style="grid-column:1/-1;"><label>Conocimientos técnicos</label><input @bind="form.ConocimientosTecnicos" type="text" /></div>
+                <div class="form-field" style="grid-column:1/-1;"><label>Habilidades</label><input @bind="form.Habilidades" type="text" /></div>
+                <div class="form-field" style="grid-column:1/-1;"><label>Condiciones especiales</label><input @bind="form.CondicionesEspeciales" type="text" /></div>
             </div>
+
+            <div style="padding:0 20px 14px;">
+                <div class="panel-head" style="padding:0 0 10px;"><h3 style="font-size:14px;">Funciones y tareas</h3></div>
+                @foreach (var cat in funcionesEditables)
+                {
+                    <div style="border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px;">
+                        <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                            <input @bind="cat.Nombre" type="text" placeholder="Nombre de la categoría" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--line);" />
+                            <button class="btn-ghost" @onclick="() => QuitarCategoria(cat)">Quitar categoría</button>
+                        </div>
+                        @for (var i = 0; i < cat.Tareas.Count; i++)
+                        {
+                            var idx = i;
+                            <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px; padding-left:16px;">
+                                <input value="@cat.Tareas[idx]" @oninput="@(e => cat.Tareas[idx] = e.Value?.ToString() ?? string.Empty)" type="text" placeholder="Tarea" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--line);" />
+                                <button class="btn-ghost" @onclick="() => QuitarTarea(cat, idx)">Quitar</button>
+                            </div>
+                        }
+                        <button class="table-action" style="margin-left:16px;" @onclick="() => AgregarTarea(cat)">+ Tarea</button>
+                    </div>
+                }
+                <button class="table-action" @onclick="AgregarCategoria">+ Categoría de función</button>
+            </div>
+
             @if (error is not null)
             {
                 <p class="text-danger" style="padding:0 20px;">@error</p>
@@ -355,6 +413,14 @@ else if (perfilActual is not null)
         public string RentaVariable { get; set; } = string.Empty;
         public string Beneficios { get; set; } = string.Empty;
         public DateTime FechaVigencia { get; set; } = DateTime.Today;
+        public string? Area { get; set; }
+        public string? ReportaA { get; set; }
+        public string? ObjetivoCargo { get; set; }
+        public string? EducacionMinima { get; set; }
+        public int? AniosExperienciaMinimo { get; set; }
+        public string? ConocimientosTecnicos { get; set; }
+        public string? Habilidades { get; set; }
+        public string? CondicionesEspeciales { get; set; }
     }
 
     private class NuevaCondicionForm
@@ -424,6 +490,11 @@ else if (perfilActual is not null)
     private void AbrirFormulario()
     {
         form = new NuevoPerfilForm();
+        funcionesEditables = [];
+        errorAnalisis = null;
+        archivoAnalizadoNombre = null;
+        archivoAnalizadoRutaBlob = null;
+        usoDocumentoIA = false;
         mostrandoFormulario = true;
         error = null;
     }
@@ -436,6 +507,17 @@ else if (perfilActual is not null)
             error = "Cliente y nombre del cargo son obligatorios.";
             return;
         }
+
+        var funciones = funcionesEditables
+            .Where(f => !string.IsNullOrWhiteSpace(f.Nombre))
+            .Select(f => new PerfilCargoService.FuncionCategoriaInput(
+                f.Nombre.Trim(),
+                f.Tareas.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList()))
+            .ToList();
+
+        (string NombreArchivo, string RutaBlob)? documento = usoDocumentoIA && archivoAnalizadoNombre is not null && archivoAnalizadoRutaBlob is not null
+            ? (archivoAnalizadoNombre, archivoAnalizadoRutaBlob)
+            : null;
 
         var id = await PerfilCargoService.CrearAsync(
             new PerfilCargoModel
@@ -451,7 +533,17 @@ else if (perfilActual is not null)
                 RentaVariable = string.IsNullOrWhiteSpace(form.RentaVariable) ? null : form.RentaVariable.Trim(),
                 Beneficios = string.IsNullOrWhiteSpace(form.Beneficios) ? null : form.Beneficios.Trim(),
                 FechaVigencia = form.FechaVigencia,
-            });
+                Area = string.IsNullOrWhiteSpace(form.Area) ? null : form.Area.Trim(),
+                ReportaA = string.IsNullOrWhiteSpace(form.ReportaA) ? null : form.ReportaA.Trim(),
+                ObjetivoCargo = string.IsNullOrWhiteSpace(form.ObjetivoCargo) ? null : form.ObjetivoCargo.Trim(),
+                EducacionMinima = string.IsNullOrWhiteSpace(form.EducacionMinima) ? null : form.EducacionMinima.Trim(),
+                AniosExperienciaMinimo = form.AniosExperienciaMinimo,
+                ConocimientosTecnicos = string.IsNullOrWhiteSpace(form.ConocimientosTecnicos) ? null : form.ConocimientosTecnicos.Trim(),
+                Habilidades = string.IsNullOrWhiteSpace(form.Habilidades) ? null : form.Habilidades.Trim(),
+                CondicionesEspeciales = string.IsNullOrWhiteSpace(form.CondicionesEspeciales) ? null : form.CondicionesEspeciales.Trim(),
+                OrigenDocumento = usoDocumentoIA ? "AnalizadoIA" : "Manual",
+            },
+            funciones, documento, usuarioId);
 
         mostrandoFormulario = false;
         perfiles = await PerfilCargoService.ListarAsync();
@@ -486,7 +578,26 @@ else if (perfilActual is not null)
 
     private async Task CargarYAnalizar(InputFileChangeEventArgs e)
     {
-        if (perfilActual is null) return;
+        // Mismo control sirve para "Nuevo perfil de cargo" (Id es null, cliente viene de form.ClienteId)
+        // y para "Agregar condición" sobre un perfil ya existente (Id no es null, cliente es perfilActual.ClienteId).
+        int clienteId;
+        int? perfilCargoIdParaBlob;
+        if (Id is null)
+        {
+            if (form.ClienteId == 0)
+            {
+                errorAnalisis = "Seleccione el cliente antes de cargar el documento.";
+                return;
+            }
+            clienteId = form.ClienteId;
+            perfilCargoIdParaBlob = null;
+        }
+        else
+        {
+            if (perfilActual is null) return;
+            clienteId = perfilActual.ClienteId;
+            perfilCargoIdParaBlob = perfilActual.Id;
+        }
 
         errorAnalisis = null;
         analizando = true;
@@ -502,26 +613,12 @@ else if (perfilActual is not null)
             }
             memoria.Position = 0;
 
-            var rutaBlob = await BlobStorageService.SubirPerfilCargoDocumentoAsync(perfilActual.Id, archivo.Name, memoria);
+            var rutaBlob = await BlobStorageService.SubirPerfilCargoDocumentoAsync(perfilCargoIdParaBlob ?? 0, archivo.Name, memoria);
             var texto = PdfTextExtractor.ExtraerTexto(memoria.ToArray());
 
-            var resultado = await PerfilCargoIAService.AnalizarAsync(texto, perfilActual.ClienteId, null, usuarioId);
+            var resultado = await PerfilCargoIAService.AnalizarAsync(texto, clienteId, null, usuarioId);
 
-            formCondicion.Area = resultado.Area;
-            formCondicion.ReportaA = resultado.ReportaA;
-            formCondicion.ObjetivoCargo = resultado.ObjetivoCargo;
-            formCondicion.EducacionMinima = resultado.EducacionMinima;
-            formCondicion.AniosExperienciaMinimo = resultado.AniosExperienciaMinimo;
-            formCondicion.ConocimientosTecnicos = resultado.ConocimientosTecnicos;
-            formCondicion.Habilidades = resultado.Habilidades;
-            formCondicion.CondicionesEspeciales = resultado.CondicionesEspeciales;
-            if (!string.IsNullOrWhiteSpace(resultado.RentaFija)) formCondicion.RentaFija = resultado.RentaFija;
-            if (!string.IsNullOrWhiteSpace(resultado.RentaVariable)) formCondicion.RentaVariable = resultado.RentaVariable;
-            if (!string.IsNullOrWhiteSpace(resultado.Beneficios)) formCondicion.Beneficios = resultado.Beneficios;
-
-            funcionesEditables = resultado.Funciones
-                .Select(f => new FuncionCategoriaEdit { Nombre = f.Nombre, Tareas = [.. f.Tareas] })
-                .ToList();
+            AplicarResultadoAnalisis(resultado);
 
             archivoAnalizadoNombre = archivo.Name;
             archivoAnalizadoRutaBlob = rutaBlob;
@@ -535,6 +632,42 @@ else if (perfilActual is not null)
         {
             analizando = false;
         }
+    }
+
+    private void AplicarResultadoAnalisis(PerfilCargoIAService.AnalisisResultado resultado)
+    {
+        if (Id is null)
+        {
+            form.Area = resultado.Area;
+            form.ReportaA = resultado.ReportaA;
+            form.ObjetivoCargo = resultado.ObjetivoCargo;
+            form.EducacionMinima = resultado.EducacionMinima;
+            form.AniosExperienciaMinimo = resultado.AniosExperienciaMinimo;
+            form.ConocimientosTecnicos = resultado.ConocimientosTecnicos;
+            form.Habilidades = resultado.Habilidades;
+            form.CondicionesEspeciales = resultado.CondicionesEspeciales;
+            if (!string.IsNullOrWhiteSpace(resultado.RentaFija)) form.RentaFija = resultado.RentaFija;
+            if (!string.IsNullOrWhiteSpace(resultado.RentaVariable)) form.RentaVariable = resultado.RentaVariable;
+            if (!string.IsNullOrWhiteSpace(resultado.Beneficios)) form.Beneficios = resultado.Beneficios;
+        }
+        else
+        {
+            formCondicion.Area = resultado.Area;
+            formCondicion.ReportaA = resultado.ReportaA;
+            formCondicion.ObjetivoCargo = resultado.ObjetivoCargo;
+            formCondicion.EducacionMinima = resultado.EducacionMinima;
+            formCondicion.AniosExperienciaMinimo = resultado.AniosExperienciaMinimo;
+            formCondicion.ConocimientosTecnicos = resultado.ConocimientosTecnicos;
+            formCondicion.Habilidades = resultado.Habilidades;
+            formCondicion.CondicionesEspeciales = resultado.CondicionesEspeciales;
+            if (!string.IsNullOrWhiteSpace(resultado.RentaFija)) formCondicion.RentaFija = resultado.RentaFija;
+            if (!string.IsNullOrWhiteSpace(resultado.RentaVariable)) formCondicion.RentaVariable = resultado.RentaVariable;
+            if (!string.IsNullOrWhiteSpace(resultado.Beneficios)) formCondicion.Beneficios = resultado.Beneficios;
+        }
+
+        funcionesEditables = resultado.Funciones
+            .Select(f => new FuncionCategoriaEdit { Nombre = f.Nombre, Tareas = [.. f.Tareas] })
+            .ToList();
     }
 
     private async Task GuardarCondicion()
