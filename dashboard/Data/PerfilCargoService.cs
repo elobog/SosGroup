@@ -91,6 +91,57 @@ public class PerfilCargoService(IDbContextFactory<ApplicationDbContext> dbFactor
         return perfil.Id;
     }
 
+    // Categoría de función + sus tareas, tal como se editan en pantalla (manual o precompletado por IA).
+    public record FuncionCategoriaInput(string Nombre, List<string> Tareas);
+
+    public record FuncionCategoriaConTareas(string Nombre, List<string> Tareas);
+
+    public async Task<List<FuncionCategoriaConTareas>> ListarFuncionesAsync(int perfilCargoVersionId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var categorias = await db.PerfilCargoFuncionCategorias
+            .Where(c => c.PerfilCargoVersionId == perfilCargoVersionId)
+            .OrderBy(c => c.Orden)
+            .ToListAsync();
+        var categoriaIds = categorias.Select(c => c.Id).ToList();
+        var tareas = await db.PerfilCargoFuncionTareas
+            .Where(t => categoriaIds.Contains(t.PerfilCargoFuncionCategoriaId))
+            .OrderBy(t => t.Orden)
+            .ToListAsync();
+
+        return categorias
+            .Select(c => new FuncionCategoriaConTareas(
+                c.Nombre,
+                tareas.Where(t => t.PerfilCargoFuncionCategoriaId == c.Id).Select(t => t.Descripcion).ToList()))
+            .ToList();
+    }
+
+    private static async Task GuardarFuncionesAsync(ApplicationDbContext db, int perfilCargoVersionId, List<FuncionCategoriaInput> funciones)
+    {
+        for (var i = 0; i < funciones.Count; i++)
+        {
+            var categoria = new PerfilCargoFuncionCategoria
+            {
+                PerfilCargoVersionId = perfilCargoVersionId,
+                Nombre = funciones[i].Nombre,
+                Orden = i,
+            };
+            db.PerfilCargoFuncionCategorias.Add(categoria);
+            await db.SaveChangesAsync();
+
+            for (var j = 0; j < funciones[i].Tareas.Count; j++)
+            {
+                db.PerfilCargoFuncionTareas.Add(new PerfilCargoFuncionTarea
+                {
+                    PerfilCargoFuncionCategoriaId = categoria.Id,
+                    Descripcion = funciones[i].Tareas[j],
+                    Orden = j,
+                });
+            }
+        }
+        if (funciones.Count > 0) await db.SaveChangesAsync();
+    }
+
     public async Task ActualizarAsync(PerfilCargo perfil)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -98,7 +149,12 @@ public class PerfilCargoService(IDbContextFactory<ApplicationDbContext> dbFactor
         await db.SaveChangesAsync();
     }
 
-    public async Task AgregarCondicionAsync(int perfilCargoId, PerfilCargoVersion nuevaVersion)
+    public async Task AgregarCondicionAsync(
+        int perfilCargoId,
+        PerfilCargoVersion nuevaVersion,
+        List<FuncionCategoriaInput> funciones,
+        (string NombreArchivo, string RutaBlob)? documentoOriginal,
+        string usuarioId)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var ultimaVersion = await db.PerfilCargoVersiones.Where(v => v.PerfilCargoId == perfilCargoId).OrderByDescending(v => v.NumeroVersion).FirstAsync();
@@ -116,8 +172,22 @@ public class PerfilCargoService(IDbContextFactory<ApplicationDbContext> dbFactor
         {
             db.PerfilCargoVersionAprobaciones.Add(new PerfilCargoVersionAprobacion { PerfilCargoVersionId = nuevaVersion.Id, Rol = rol });
         }
-        await db.SaveChangesAsync();
 
+        await GuardarFuncionesAsync(db, nuevaVersion.Id, funciones);
+
+        if (documentoOriginal is not null)
+        {
+            db.PerfilCargoDocumentosOriginal.Add(new PerfilCargoDocumentoOriginal
+            {
+                PerfilCargoVersionId = nuevaVersion.Id,
+                NombreArchivo = documentoOriginal.Value.NombreArchivo,
+                RutaBlob = documentoOriginal.Value.RutaBlob,
+                CargadoPorUsuarioId = usuarioId,
+                FechaCarga = DateTime.UtcNow,
+            });
+        }
+
+        await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
 
