@@ -16,7 +16,7 @@ public static class PortalDefinicion
     {
         ["Admin"] = ["Clientes", "Usuarios", "Perfiles", "Accesos"],
         ["Reclutamiento"] = ["Solicitud"],
-        ["Remuneracion"] = [],
+        ["Remuneracion"] = ["Contratos"],
     };
 
     public static readonly Dictionary<string, string> RutaModulo = new()
@@ -26,6 +26,7 @@ public static class PortalDefinicion
         ["Admin:Perfiles"] = "/Admin/Perfiles",
         ["Admin:Accesos"] = "/Admin/Accesos",
         ["Reclutamiento:Solicitud"] = "/Reclutamiento/Solicitud",
+        ["Remuneracion:Contratos"] = "/Remuneracion/Contratos",
     };
 
     public static readonly Dictionary<string, string> EtiquetaApp = new()

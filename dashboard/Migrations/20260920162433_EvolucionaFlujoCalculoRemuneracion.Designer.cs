@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using dashboard.Data;
 
@@ -11,9 +12,11 @@ using dashboard.Data;
 namespace dashboard.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920162433_EvolucionaFlujoCalculoRemuneracion")]
+    partial class EvolucionaFlujoCalculoRemuneracion
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -475,18 +478,11 @@ namespace dashboard.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AniosExperiencia")
-                        .HasColumnType("int");
-
                     b.Property<int>("AperturaId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("CierrePostulaciones")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Comuna")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CreadoPorUsuarioId")
                         .IsRequired()
@@ -496,78 +492,25 @@ namespace dashboard.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CursoDeseable")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int?>("EdadMaxima")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("EdadMinima")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EducacionEstado")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("EducacionMinima")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("EmpleoInclusivo")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("JornadaTexto")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("JornadaTipo")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Modalidad")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("NivelCargo")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("NumeroVersion")
                         .HasColumnType("int");
-
-                    b.Property<string>("PalabrasClave")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("Region")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("SalarioPeriodicidad")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<decimal?>("SalarioPublicado")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<string>("TipoContrato")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("TituloCargo")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("TurnoTexto")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<string>("Ubicacion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.HasKey("Id");
 
@@ -831,10 +774,7 @@ namespace dashboard.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int?>("PerfilCargoVersionId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("PostulanteId")
+                    b.Property<int>("PostulanteId")
                         .HasColumnType("int");
 
                     b.Property<string>("Proposito")
@@ -848,9 +788,10 @@ namespace dashboard.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("ReclutadorId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int?>("SolicitudId")
+                    b.Property<int>("SolicitudId")
                         .HasColumnType("int");
 
                     b.Property<int>("TokensEntrada")
@@ -862,8 +803,6 @@ namespace dashboard.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
-
-                    b.HasIndex("PerfilCargoVersionId");
 
                     b.HasIndex("PostulanteId");
 
@@ -911,95 +850,6 @@ namespace dashboard.Migrations
                     b.ToTable("PerfilCargo", "Reclutamiento");
                 });
 
-            modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoDocumentoOriginal", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CargadoPorUsuarioId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("FechaCarga")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("NombreArchivo")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("PerfilCargoVersionId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("RutaBlob")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CargadoPorUsuarioId");
-
-                    b.HasIndex("PerfilCargoVersionId");
-
-                    b.ToTable("PerfilCargoDocumentoOriginal", "Reclutamiento");
-                });
-
-            modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoFuncionCategoria", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<int>("Orden")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PerfilCargoVersionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PerfilCargoVersionId");
-
-                    b.ToTable("PerfilCargoFuncionCategoria", "Reclutamiento");
-                });
-
-            modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoFuncionTarea", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Descripcion")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("Orden")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PerfilCargoFuncionCategoriaId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PerfilCargoFuncionCategoriaId");
-
-                    b.ToTable("PerfilCargoFuncionTarea", "Reclutamiento");
-                });
-
             modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoVersion", b =>
                 {
                     b.Property<int>("Id")
@@ -1008,25 +858,8 @@ namespace dashboard.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AniosExperienciaMinimo")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Area")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("Beneficios")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CondicionesEspeciales")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ConocimientosTecnicos")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EducacionMinima")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Estado")
                         .IsRequired()
@@ -1036,19 +869,8 @@ namespace dashboard.Migrations
                     b.Property<DateTime>("FechaVigencia")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Habilidades")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("NumeroVersion")
                         .HasColumnType("int");
-
-                    b.Property<string>("ObjetivoCargo")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("OrigenDocumento")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<int>("PerfilCargoId")
                         .HasColumnType("int");
@@ -1060,10 +882,6 @@ namespace dashboard.Migrations
                     b.Property<string>("RentaVariable")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ReportaA")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
 
                     b.Property<int?>("VersionBaseId")
                         .HasColumnType("int");
@@ -2305,25 +2123,23 @@ namespace dashboard.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("dashboard.Models.Reclutamiento.PerfilCargoVersion", null)
-                        .WithMany()
-                        .HasForeignKey("PerfilCargoVersionId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("dashboard.Models.Reclutamiento.Postulante", null)
                         .WithMany()
                         .HasForeignKey("PostulanteId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("dashboard.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("ReclutadorId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("dashboard.Models.Reclutamiento.Solicitud", null)
                         .WithMany()
                         .HasForeignKey("SolicitudId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargo", b =>
@@ -2331,39 +2147,6 @@ namespace dashboard.Migrations
                     b.HasOne("dashboard.Models.Admin.Cliente", null)
                         .WithMany()
                         .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoDocumentoOriginal", b =>
-                {
-                    b.HasOne("dashboard.Data.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("CargadoPorUsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("dashboard.Models.Reclutamiento.PerfilCargoVersion", null)
-                        .WithMany()
-                        .HasForeignKey("PerfilCargoVersionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoFuncionCategoria", b =>
-                {
-                    b.HasOne("dashboard.Models.Reclutamiento.PerfilCargoVersion", null)
-                        .WithMany()
-                        .HasForeignKey("PerfilCargoVersionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("dashboard.Models.Reclutamiento.PerfilCargoFuncionTarea", b =>
-                {
-                    b.HasOne("dashboard.Models.Reclutamiento.PerfilCargoFuncionCategoria", null)
-                        .WithMany()
-                        .HasForeignKey("PerfilCargoFuncionCategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -50,6 +50,7 @@ builder.Services.AddScoped<PerfilCargoService>();
 builder.Services.AddScoped<BlobStorageService>();
 builder.Services.AddScoped<PerfilCargoIAService>();
 builder.Services.AddScoped<SolicitudService>();
+builder.Services.AddScoped<ContratosService>();
 builder.Services.AddScoped<AppSeleccionState>();
 
 var app = builder.Build();
