@@ -22,6 +22,17 @@
 
 <PageTitle>Perfiles de cargo | SOS Group</PageTitle>
 
+@if (analizando)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-spinner"></div>
+            <p><b>Analizando documento con IA…</b></p>
+            <p class="panel-text" style="margin:0;">Esto puede tomar unos segundos.</p>
+        </div>
+    </div>
+}
+
 <div class="page-head">
     <div>
         <div class="breadcrumb"><b>Reclutamiento</b> / Solicitud</div>
@@ -78,14 +89,16 @@
 
             <div style="padding:0 20px 18px;">
                 <p class="panel-text" style="margin-bottom:8px;">
-                    Si el cliente ya entregó un documento con el perfil de cargo, cárguelo acá para precompletar los
-                    campos automáticamente con IA — luego revíselos antes de guardar. Debe seleccionar el cliente primero.
+                    Si el cliente ya entregó un documento con el perfil de cargo, cárguelo acá y presione
+                    "Analizar con IA" para precompletar los campos — luego revíselos antes de guardar. Debe
+                    seleccionar el cliente primero.
                 </p>
-                <InputFile OnChange="CargarYAnalizar" accept=".pdf" disabled="@(analizando || form.ClienteId == 0)" />
-                @if (analizando)
-                {
-                    <p class="panel-text" style="margin-top:8px;">Analizando documento…</p>
-                }
+                <div class="file-picker">
+                    <label for="archivoInputNuevo" class="table-action" style="@(form.ClienteId == 0 ? "opacity:.5; pointer-events:none;" : "")">Seleccionar archivo</label>
+                    <InputFile id="archivoInputNuevo" OnChange="SeleccionarArchivo" accept=".pdf" disabled="@(form.ClienteId == 0)" />
+                    <span class="file-picker-name">@(archivoSeleccionado?.Name ?? "Ningún archivo seleccionado")</span>
+                    <button class="btn-primary" disabled="@(archivoSeleccionado is null || analizando)" @onclick="AnalizarArchivoSeleccionado">Analizar con IA</button>
+                </div>
                 @if (errorAnalisis is not null)
                 {
                     <p class="text-danger" style="margin-top:8px;">@errorAnalisis</p>
@@ -229,12 +242,17 @@ else if (perfilActual is not null)
 
     <div class="panel">
         <div class="panel-head"><h3>Historial de condiciones</h3><span class="tag">@versiones.Count</span></div>
+        <p class="panel-text" style="padding:0 20px 14px; margin:0;">
+            Cada condición nueva queda <b>Pendiente</b> hasta que un <b>Supervisor de Operaciones</b> y un
+            <b>Supervisor Administrativo</b> la aprueben — recién ahí pasa a <b>Vigente</b> y reemplaza a la
+            anterior. Mientras haya una condición pendiente, no se puede agregar otra.
+        </p>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
                         <th>N°</th><th>Renta fija</th><th>Renta variable</th><th>Beneficios</th><th>Vigencia desde</th><th>Origen</th><th>Estado</th>
-                        <th>Aprob. Operaciones</th><th>Aprob. Administrativo</th>
+                        <th>Aprueba Sup. Operaciones</th><th>Aprueba Sup. Administrativo</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -282,29 +300,32 @@ else if (perfilActual is not null)
             </table>
         </div>
         <div style="padding:14px 20px;">
-            @if (hayVersionPendiente)
-            {
-                <p style="color:var(--ink-faint); font-size:13px;">Ya hay una condición pendiente de aprobación — no se puede agregar otra hasta que se resuelva.</p>
-            }
-            else if (puedeCrear)
+            @if (versionPendienteId is null && puedeCrear && !mostrandoFormCondicion)
             {
                 <button class="table-action" @onclick="MostrarFormNuevaCondicion">+ Agregar condición</button>
             }
         </div>
-        @if (mostrandoFormCondicion)
+        @if ((versionPendienteId is not null && puedeCrear) || mostrandoFormCondicion)
         {
-            <div class="panel-head" style="border-top:1px solid var(--line);"><h3>Nueva condición</h3></div>
+            <div class="panel-head" style="border-top:1px solid var(--line);">
+                <h3>@(versionPendienteId is not null ? "Condición pendiente de aprobación" : "Nueva condición")</h3>
+                @if (versionPendienteId is not null)
+                {
+                    <span class="tag">Editable hasta que se apruebe</span>
+                }
+            </div>
 
             <div style="padding:0 20px 18px;">
                 <p class="panel-text" style="margin-bottom:8px;">
-                    Si el cliente entregó un documento de perfil de cargo, cárguelo acá para precompletar los
-                    campos automáticamente con IA — luego revíselos antes de guardar.
+                    Si el cliente entregó un documento de perfil de cargo, cárguelo acá y presione "Analizar con IA"
+                    para precompletar los campos — luego revíselos antes de guardar.
                 </p>
-                <InputFile OnChange="CargarYAnalizar" accept=".pdf" disabled="@analizando" />
-                @if (analizando)
-                {
-                    <p class="panel-text" style="margin-top:8px;">Analizando documento…</p>
-                }
+                <div class="file-picker">
+                    <label for="archivoInputCondicion" class="table-action">Seleccionar archivo</label>
+                    <InputFile id="archivoInputCondicion" OnChange="SeleccionarArchivo" accept=".pdf" />
+                    <span class="file-picker-name">@(archivoSeleccionado?.Name ?? "Ningún archivo seleccionado")</span>
+                    <button class="btn-primary" disabled="@(archivoSeleccionado is null || analizando)" @onclick="AnalizarArchivoSeleccionado">Analizar con IA</button>
+                </div>
                 @if (errorAnalisis is not null)
                 {
                     <p class="text-danger" style="margin-top:8px;">@errorAnalisis</p>
@@ -356,8 +377,11 @@ else if (perfilActual is not null)
             </div>
 
             <div class="form-actions">
-                <button class="btn-ghost" @onclick="() => mostrandoFormCondicion = false">Cancelar</button>
-                <button class="btn-primary" @onclick="GuardarCondicion">Agregar condición</button>
+                @if (versionPendienteId is null)
+                {
+                    <button class="btn-ghost" @onclick="() => mostrandoFormCondicion = false">Cancelar</button>
+                }
+                <button class="btn-primary" @onclick="GuardarCondicion">@(versionPendienteId is not null ? "Guardar cambios" : "Agregar condición")</button>
             </div>
         }
     </div>
@@ -374,7 +398,7 @@ else if (perfilActual is not null)
     private List<ClientesService.ClienteResumen> clientes = [];
     private PerfilCargoModel? perfilActual;
     private List<PerfilCargoService.VersionConAprobaciones> versiones = [];
-    private bool hayVersionPendiente => versiones.Any(v => v.Version.Estado == "Pendiente");
+    private int? versionPendienteId;
 
     private string usuarioId = string.Empty;
     private List<string> roles = [];
@@ -393,6 +417,7 @@ else if (perfilActual is not null)
 
     private bool analizando;
     private string? errorAnalisis;
+    private IBrowserFile? archivoSeleccionado;
     private string? archivoAnalizadoNombre;
     private string? archivoAnalizadoRutaBlob;
     private bool usoDocumentoIA;
@@ -481,6 +506,35 @@ else if (perfilActual is not null)
         versiones = await PerfilCargoService.ListarVersionesAsync(id);
         versionVigente = versiones.FirstOrDefault(v => v.Version.Estado == "Vigente")?.Version;
         funcionesVigente = versionVigente is not null ? await PerfilCargoService.ListarFuncionesAsync(versionVigente.Id) : [];
+
+        var pendiente = versiones.FirstOrDefault(v => v.Version.Estado == "Pendiente")?.Version;
+        versionPendienteId = pendiente?.Id;
+        errorAnalisis = null;
+        archivoSeleccionado = null;
+        archivoAnalizadoNombre = null;
+        archivoAnalizadoRutaBlob = null;
+
+        if (pendiente is not null)
+        {
+            formCondicion = new NuevaCondicionForm
+            {
+                RentaFija = pendiente.RentaFija ?? string.Empty,
+                RentaVariable = pendiente.RentaVariable ?? string.Empty,
+                Beneficios = pendiente.Beneficios ?? string.Empty,
+                FechaVigencia = pendiente.FechaVigencia,
+                Area = pendiente.Area,
+                ReportaA = pendiente.ReportaA,
+                ObjetivoCargo = pendiente.ObjetivoCargo,
+                EducacionMinima = pendiente.EducacionMinima,
+                AniosExperienciaMinimo = pendiente.AniosExperienciaMinimo,
+                ConocimientosTecnicos = pendiente.ConocimientosTecnicos,
+                Habilidades = pendiente.Habilidades,
+                CondicionesEspeciales = pendiente.CondicionesEspeciales,
+            };
+            var funciones = await PerfilCargoService.ListarFuncionesAsync(pendiente.Id);
+            funcionesEditables = funciones.Select(f => new FuncionCategoriaEdit { Nombre = f.Nombre, Tareas = [.. f.Tareas] }).ToList();
+            usoDocumentoIA = pendiente.OrigenDocumento == "AnalizadoIA";
+        }
     }
 
     // forceLoad: true porque lista y ficha son el mismo componente Razor (misma ruta base) — sin esto,
@@ -492,6 +546,7 @@ else if (perfilActual is not null)
         form = new NuevoPerfilForm();
         funcionesEditables = [];
         errorAnalisis = null;
+        archivoSeleccionado = null;
         archivoAnalizadoNombre = null;
         archivoAnalizadoRutaBlob = null;
         usoDocumentoIA = false;
@@ -565,6 +620,7 @@ else if (perfilActual is not null)
         formCondicion = new NuevaCondicionForm();
         funcionesEditables = [];
         errorAnalisis = null;
+        archivoSeleccionado = null;
         archivoAnalizadoNombre = null;
         archivoAnalizadoRutaBlob = null;
         usoDocumentoIA = false;
@@ -576,8 +632,16 @@ else if (perfilActual is not null)
     private void AgregarTarea(FuncionCategoriaEdit categoria) => categoria.Tareas.Add(string.Empty);
     private void QuitarTarea(FuncionCategoriaEdit categoria, int indice) => categoria.Tareas.RemoveAt(indice);
 
-    private async Task CargarYAnalizar(InputFileChangeEventArgs e)
+    private void SeleccionarArchivo(InputFileChangeEventArgs e)
     {
+        archivoSeleccionado = e.File;
+        errorAnalisis = null;
+    }
+
+    private async Task AnalizarArchivoSeleccionado()
+    {
+        if (archivoSeleccionado is null) return;
+
         // Mismo control sirve para "Nuevo perfil de cargo" (Id es null, cliente viene de form.ClienteId)
         // y para "Agregar condición" sobre un perfil ya existente (Id no es null, cliente es perfilActual.ClienteId).
         int clienteId;
@@ -586,7 +650,7 @@ else if (perfilActual is not null)
         {
             if (form.ClienteId == 0)
             {
-                errorAnalisis = "Seleccione el cliente antes de cargar el documento.";
+                errorAnalisis = "Seleccione el cliente antes de analizar el documento.";
                 return;
             }
             clienteId = form.ClienteId;
@@ -605,7 +669,7 @@ else if (perfilActual is not null)
 
         try
         {
-            var archivo = e.File;
+            var archivo = archivoSeleccionado;
             using var memoria = new MemoryStream();
             await using (var stream = archivo.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024))
             {
@@ -685,7 +749,7 @@ else if (perfilActual is not null)
             ? (archivoAnalizadoNombre, archivoAnalizadoRutaBlob)
             : null;
 
-        await PerfilCargoService.AgregarCondicionAsync(Id.Value, new PerfilCargoVersion
+        var datos = new PerfilCargoVersion
         {
             RentaFija = string.IsNullOrWhiteSpace(formCondicion.RentaFija) ? null : formCondicion.RentaFija.Trim(),
             RentaVariable = string.IsNullOrWhiteSpace(formCondicion.RentaVariable) ? null : formCondicion.RentaVariable.Trim(),
@@ -700,7 +764,16 @@ else if (perfilActual is not null)
             Habilidades = string.IsNullOrWhiteSpace(formCondicion.Habilidades) ? null : formCondicion.Habilidades.Trim(),
             CondicionesEspeciales = string.IsNullOrWhiteSpace(formCondicion.CondicionesEspeciales) ? null : formCondicion.CondicionesEspeciales.Trim(),
             OrigenDocumento = usoDocumentoIA ? "AnalizadoIA" : "Manual",
-        }, funciones, documento, usuarioId);
+        };
+
+        if (versionPendienteId is not null)
+        {
+            await PerfilCargoService.ActualizarVersionPendienteAsync(versionPendienteId.Value, datos, funciones, documento, usuarioId);
+        }
+        else
+        {
+            await PerfilCargoService.AgregarCondicionAsync(Id.Value, datos, funciones, documento, usuarioId);
+        }
 
         mostrandoFormCondicion = false;
         await CargarFichaAsync(Id.Value);

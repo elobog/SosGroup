@@ -210,6 +210,61 @@ public class PerfilCargoService(IDbContextFactory<ApplicationDbContext> dbFactor
         await tx.CommitAsync();
     }
 
+    // Una condición sigue siendo editable mientras esté "Pendiente" — una vez que la aprueban ambos
+    // supervisores pasa a "Vigente" y ya no se puede tocar (para cambiarla hay que agregar una nueva).
+    public async Task ActualizarVersionPendienteAsync(
+        int versionId,
+        PerfilCargoVersion datos,
+        List<FuncionCategoriaInput> funciones,
+        (string NombreArchivo, string RutaBlob)? documentoOriginal,
+        string usuarioId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+
+        var version = await db.PerfilCargoVersiones.FirstOrDefaultAsync(v => v.Id == versionId && v.Estado == "Pendiente");
+        if (version is null) return; // ya fue aprobada/rechazada por otro usuario mientras se editaba — no se toca
+
+        version.RentaFija = datos.RentaFija;
+        version.RentaVariable = datos.RentaVariable;
+        version.Beneficios = datos.Beneficios;
+        version.FechaVigencia = datos.FechaVigencia;
+        version.Area = datos.Area;
+        version.ReportaA = datos.ReportaA;
+        version.ObjetivoCargo = datos.ObjetivoCargo;
+        version.EducacionMinima = datos.EducacionMinima;
+        version.AniosExperienciaMinimo = datos.AniosExperienciaMinimo;
+        version.ConocimientosTecnicos = datos.ConocimientosTecnicos;
+        version.Habilidades = datos.Habilidades;
+        version.CondicionesEspeciales = datos.CondicionesEspeciales;
+        version.OrigenDocumento = datos.OrigenDocumento;
+        await db.SaveChangesAsync();
+
+        var categoriasExistentes = await db.PerfilCargoFuncionCategorias.Where(c => c.PerfilCargoVersionId == versionId).ToListAsync();
+        var categoriaIds = categoriasExistentes.Select(c => c.Id).ToList();
+        var tareasExistentes = await db.PerfilCargoFuncionTareas.Where(t => categoriaIds.Contains(t.PerfilCargoFuncionCategoriaId)).ToListAsync();
+        db.PerfilCargoFuncionTareas.RemoveRange(tareasExistentes);
+        db.PerfilCargoFuncionCategorias.RemoveRange(categoriasExistentes);
+        await db.SaveChangesAsync();
+
+        await GuardarFuncionesAsync(db, versionId, funciones);
+
+        if (documentoOriginal is not null)
+        {
+            db.PerfilCargoDocumentosOriginal.Add(new PerfilCargoDocumentoOriginal
+            {
+                PerfilCargoVersionId = versionId,
+                NombreArchivo = documentoOriginal.Value.NombreArchivo,
+                RutaBlob = documentoOriginal.Value.RutaBlob,
+                CargadoPorUsuarioId = usuarioId,
+                FechaCarga = DateTime.UtcNow,
+            });
+        }
+
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+    }
+
     // Devuelve true si la versión quedó Vigente tras esta aprobación.
     public async Task<bool> AprobarVersionAsync(int versionId, string rol, string usuarioId)
     {

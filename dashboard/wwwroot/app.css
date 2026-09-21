@@ -289,6 +289,17 @@ tbody tr:hover{background:var(--surface-2);}
 input[type=checkbox]{accent-color:var(--red); width:16px; height:16px; cursor:pointer; vertical-align:middle;}
 input[type=checkbox]:disabled{cursor:not-allowed; opacity:.3;}
 
+/* ===== Carga de archivo con el mismo estilo de botón que el resto de la app (el <input type=file> nativo se oculta) ===== */
+.file-picker{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.file-picker input[type=file]{display:none;}
+.file-picker-name{font-size:13px; color:var(--ink-soft);}
+
+/* ===== Modal genérico (overlay + tarjeta centrada), reutilizable para cualquier acción en curso ===== */
+.modal-overlay{position:fixed; inset:0; background:rgba(20,24,32,.55); display:flex; align-items:center; justify-content:center; z-index:1000;}
+.modal-card{background:var(--surface); border-radius:14px; box-shadow:var(--shadow); padding:32px 36px; display:flex; flex-direction:column; align-items:center; gap:14px; max-width:360px; text-align:center;}
+.modal-spinner{width:32px; height:32px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--red); animation:modal-spin .8s linear infinite;}
+@keyframes modal-spin{to{transform:rotate(360deg);}}
+
 /* ===== Acciones de fila — mismo ícono en toda la app, siempre visible a la derecha ===== */
 .col-actions{width:1%; white-space:nowrap; text-align:right;}
 .row-actions{display:flex; gap:6px; justify-content:flex-end;}
