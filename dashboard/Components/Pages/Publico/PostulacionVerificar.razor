@@ -1,0 +1,47 @@
+@page "/postulaciones/verificar/{Token}"
+@layout dashboard.Components.Layout.PublicoLayout
+@rendermode InteractiveServer
+@using dashboard.Data
+@inject PostulacionPublicaService PostulacionPublicaService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Confirmar postulación | SOS Group</PageTitle>
+
+@if (info is null)
+{
+    <div class="panel"><div style="padding:20px;">Este link ya no es válido — puede haber expirado o haberse usado antes. <a class="link-btn" href="/postulaciones">Volver a búsquedas abiertas</a>.</div></div>
+}
+else if (rechazado)
+{
+    <div class="panel"><div style="padding:20px;">No se guardó ningún dato. Gracias por tu interés — puedes volver cuando quieras.</div></div>
+}
+else
+{
+    <div class="panel">
+        <div class="panel-head"><h3>Hola, @info.NombreContacto</h3></div>
+        <div style="padding:0 20px 20px;">
+            <p>Estás confirmando tu postulación a <b>@info.CargoNombre</b>.</p>
+            <p><b>Política de tratamiento de datos personales:</b> tus datos de contacto y los que completes a continuación (currículum, antecedentes) serán usados por SOS Group exclusivamente para evaluar tu postulación a esta y futuras búsquedas de personal, y no serán compartidos con terceros ajenos al proceso de selección.</p>
+            <div class="form-actions" style="padding:0; justify-content:flex-start;">
+                <button class="btn-primary" @onclick="Aceptar">Aceptar y continuar</button>
+                <button class="btn-ghost" @onclick="() => rechazado = true">Rechazar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    private PostulacionPublicaService.TokenInfo? info;
+    private bool rechazado;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var resultado = await PostulacionPublicaService.ObtenerInfoTokenAsync(Token);
+        info = resultado is { Valido: true } ? resultado : null;
+    }
+
+    private void Aceptar() => NavigationManager.NavigateTo($"/postulaciones/datos/{Token}");
+}

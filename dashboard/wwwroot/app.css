@@ -310,3 +310,12 @@ input[type=checkbox]:disabled{cursor:not-allowed; opacity:.3;}
 }
 .row-icon-btn:hover{color:var(--ink); border-color:var(--navy-light);}
 .row-icon-btn.danger:hover{color:var(--red); border-color:rgba(156,43,52,.4); background:rgba(156,43,52,.08);}
+
+/* ===== Portal público de postulación — tarjetas en vez de tabla (pensado para celular, sin sesión) ===== */
+.public-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px;}
+.public-card{display:block; background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:20px; text-decoration:none; color:inherit; transition:.15s;}
+.public-card:hover{border-color:var(--navy-light);}
+.public-card-title{font-family:'Barlow Condensed','Arial Narrow',Helvetica,Arial,sans-serif; font-weight:700; font-size:19px; color:var(--ink); margin:0 0 6px;}
+.public-card-meta{font-size:13px; color:var(--ink-soft); margin:0 0 4px;}
+.public-empty{padding:40px 20px; text-align:center; color:var(--ink-soft);}
+.public-back{display:inline-block; margin-bottom:16px;}

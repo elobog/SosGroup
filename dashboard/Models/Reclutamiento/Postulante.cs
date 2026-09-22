@@ -20,4 +20,8 @@ public class Postulante
     public string? DescripcionProfesional { get; set; }
     public string? Habilidades { get; set; }
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+
+    // Portal público de postulación — ver PostulanteAccesoToken.
+    public bool PoliticaAceptada { get; set; }
+    public DateTime? FechaAceptacionPolitica { get; set; }
 }

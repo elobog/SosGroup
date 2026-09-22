@@ -1,0 +1,141 @@
+@page "/postulaciones/datos/{Token}"
+@layout dashboard.Components.Layout.PublicoLayout
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@using dashboard.Data
+@inject PostulacionPublicaService PostulacionPublicaService
+
+<PageTitle>Completar postulación | SOS Group</PageTitle>
+
+@if (info is null)
+{
+    <div class="panel"><div style="padding:20px;">Este link ya no es válido — puede haber expirado o haberse usado antes. <a class="link-btn" href="/postulaciones">Volver a búsquedas abiertas</a>.</div></div>
+}
+else if (enviado)
+{
+    <div class="panel"><div style="padding:20px;"><p><b>¡Postulación recibida!</b> Gracias @info.NombreContacto, quedaste postulado a <b>@info.CargoNombre</b>. El equipo de SOS Group se pondrá en contacto contigo si avanzas en el proceso.</p></div></div>
+}
+else
+{
+    <div class="panel">
+        <div class="panel-head"><h3>Completa tus datos</h3><span class="tag">@info.CargoNombre</span></div>
+        <EditForm Model="form" OnValidSubmit="EnviarAsync" class="form-grid">
+            <DataAnnotationsValidator />
+            <div class="form-field">
+                <label>RUT</label>
+                <InputText @bind-Value="form.RUT" placeholder="12.345.678-9" />
+                <ValidationMessage For="() => form.RUT" class="text-danger" />
+            </div>
+            <div class="form-field">
+                <label>Sexo</label>
+                <InputSelect @bind-Value="form.Sexo">
+                    <option value="">Prefiero no decir</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Otro">Otro</option>
+                </InputSelect>
+            </div>
+            <div class="form-field">
+                <label>Edad</label>
+                <InputNumber @bind-Value="form.Edad" />
+            </div>
+            <div class="form-field">
+                <label>Comuna</label>
+                <InputText @bind-Value="form.Comuna" />
+            </div>
+            <div class="form-field">
+                <label>Años de experiencia</label>
+                <InputNumber @bind-Value="form.AniosExperiencia" />
+            </div>
+            <div class="form-field">
+                <label>Rubro de experiencia</label>
+                <InputText @bind-Value="form.RubroExperiencia" />
+            </div>
+            <div class="form-field" style="grid-column:1/-1;">
+                <label>Currículum (PDF)</label>
+                <div class="file-picker">
+                    <label class="btn-ghost" for="cvInput" style="cursor:pointer;">Elegir archivo</label>
+                    <InputFile id="cvInput" OnChange="SeleccionarCv" accept=".pdf" />
+                    <span class="file-picker-name">@(cv?.Name ?? "Ningún archivo seleccionado")</span>
+                </div>
+            </div>
+            <div class="form-actions" style="grid-column:1/-1;">
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <span class="text-danger">@error</span>
+                }
+                <button type="submit" class="btn-primary" disabled="@enviando">Enviar postulación</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    private PostulacionPublicaService.TokenInfo? info;
+    private FormModel form = new();
+    private IBrowserFile? cv;
+    private bool enviando;
+    private bool enviado;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var resultado = await PostulacionPublicaService.ObtenerInfoTokenAsync(Token);
+        info = resultado is { Valido: true } ? resultado : null;
+    }
+
+    private void SeleccionarCv(InputFileChangeEventArgs e) => cv = e.File;
+
+    private async Task EnviarAsync()
+    {
+        enviando = true;
+        error = null;
+        try
+        {
+            var datos = new PostulacionPublicaService.PostulanteDatosInput(form.RUT, string.IsNullOrWhiteSpace(form.Sexo) ? null : form.Sexo, form.Edad, form.Comuna, form.AniosExperiencia, form.RubroExperiencia, null, null, null, null, null, null);
+
+            if (cv is not null)
+            {
+                using var memoria = new MemoryStream();
+                await using (var stream = cv.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024))
+                {
+                    await stream.CopyToAsync(memoria);
+                }
+                memoria.Position = 0;
+                var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, memoria, cv.Name);
+                enviado = ok;
+                if (!ok) error = "Este link ya no es válido.";
+            }
+            else
+            {
+                var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, null, null);
+                enviado = ok;
+                if (!ok) error = "Este link ya no es válido.";
+            }
+        }
+        catch (Exception)
+        {
+            error = "No pudimos guardar tu postulación. Intenta nuevamente en unos minutos.";
+        }
+        finally
+        {
+            enviando = false;
+        }
+    }
+
+    private sealed class FormModel
+    {
+        [Required(ErrorMessage = "Ingresa tu RUT.")]
+        public string RUT { get; set; } = "";
+
+        public string? Sexo { get; set; }
+        public int? Edad { get; set; }
+        public string? Comuna { get; set; }
+        public int? AniosExperiencia { get; set; }
+        public string? RubroExperiencia { get; set; }
+    }
+}

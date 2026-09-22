@@ -8,7 +8,7 @@ namespace dashboard.Components.Account;
 
 // Envía correo real como notificaciones@sosgroup.cl vía Microsoft Graph (app-only), en el tenant
 // propio de SOS Group — reemplaza al envío por Azure Communication Services.
-internal sealed class CorreoSistemaService : IEmailSender<ApplicationUser>
+public sealed class CorreoSistemaService : IEmailSender<ApplicationUser>
 {
     private static readonly HttpClient Http = new();
 
@@ -35,6 +35,11 @@ internal sealed class CorreoSistemaService : IEmailSender<ApplicationUser>
 
     public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode) =>
         EnviarAsync(email, "Código de recuperación - SOS Group", $"<p>Hola {user.Nombre},</p><p>Tu código de recuperación es: <b>{resetCode}</b></p>");
+
+    // Reusa el mismo envío por Graph para destinatarios que no son ApplicationUser (ej. candidatos
+    // del portal público de postulación, que no tienen cuenta de Identity).
+    public Task EnviarCorreoGenericoAsync(string destinatario, string asunto, string cuerpoHtml) =>
+        EnviarAsync(destinatario, asunto, cuerpoHtml);
 
     // Task.Run: una llamada HTTP saliente disparada directamente desde un circuito interactivo de
     // Blazor Server puede colgarse por conflicto entre el SynchronizationContext del circuito y el

@@ -1,0 +1,62 @@
+.publico-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+}
+
+.publico-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    box-sizing: border-box;
+}
+
+.publico-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.publico-brand img {
+    height: 36px;
+    width: auto;
+    display: block;
+}
+
+.publico-brand span {
+    font-family: 'Barlow Condensed', 'Arial Narrow', Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--ink);
+    letter-spacing: .2px;
+}
+
+.publico-main {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+    box-sizing: border-box;
+}
+
+.publico-footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-faint);
+    padding: 18px 20px;
+}
+
+@media (max-width: 560px) {
+    .publico-brand span {
+        font-size: 15px;
+    }
+
+    .publico-main {
+        padding: 18px 14px 36px;
+    }
+}

@@ -1,0 +1,45 @@
+@page "/postulaciones"
+@layout dashboard.Components.Layout.PublicoLayout
+@rendermode InteractiveServer
+@using dashboard.Data
+@inject PostulacionPublicaService PostulacionPublicaService
+
+<PageTitle>Trabaja con nosotros | SOS Group</PageTitle>
+
+<h1>Búsquedas abiertas</h1>
+<p class="public-card-meta" style="margin-bottom:20px;">Postula directamente, sin necesidad de crear una cuenta.</p>
+
+@if (solicitudes is null)
+{
+    <p>Cargando…</p>
+}
+else if (solicitudes.Count == 0)
+{
+    <div class="public-empty">Por el momento no hay búsquedas abiertas. Vuelve a revisar más adelante.</div>
+}
+else
+{
+    <div class="public-grid">
+        @foreach (var s in solicitudes)
+        {
+            <a class="public-card" href="@($"/postulaciones/{s.Id}")">
+                <p class="public-card-title">@s.CargoNombre</p>
+                <p class="public-card-meta">@s.ClienteRazonSocial</p>
+                @if (!string.IsNullOrWhiteSpace(s.DireccionServicio))
+                {
+                    <p class="public-card-meta">@s.DireccionServicio</p>
+                }
+                <p class="public-card-meta">Inicio: @s.FechaInicioServicio.ToString("dd-MM-yyyy")</p>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private List<PostulacionPublicaService.SolicitudPublicaResumen>? solicitudes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        solicitudes = await PostulacionPublicaService.ListarSolicitudesAbiertasAsync();
+    }
+}

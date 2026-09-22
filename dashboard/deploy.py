@@ -10,6 +10,7 @@ resolve nested wwwroot/ folders for Windows-marked entries, serving them as
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -30,9 +31,18 @@ def run(cmd):
 
 
 def build():
+    # El proyecto vive en OneDrive: a veces todavía tiene un archivo de publish/
+    # bloqueado por sincronización justo al momento de borrar — reintenta antes
+    # de rendirse en vez de que el deploy falle por una carrera transitoria.
     if PUBLISH_DIR.exists():
-        import shutil
-        shutil.rmtree(PUBLISH_DIR)
+        for intento in range(5):
+            try:
+                shutil.rmtree(PUBLISH_DIR)
+                break
+            except PermissionError:
+                if intento == 4:
+                    raise
+                time.sleep(2)
     run(["dotnet", "publish", "-c", "Release", "-o", str(PUBLISH_DIR)])
 
 

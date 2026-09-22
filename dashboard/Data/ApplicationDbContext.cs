@@ -45,6 +45,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<PostulanteHistorial> PostulanteHistoriales => Set<PostulanteHistorial>();
     public DbSet<PostulanteDocumento> PostulanteDocumentos => Set<PostulanteDocumento>();
     public DbSet<DocumentoExtraccionIA> DocumentosExtraccionIA => Set<DocumentoExtraccionIA>();
+    public DbSet<PostulanteAccesoToken> PostulanteAccesoTokens => Set<PostulanteAccesoToken>();
 
     // ---- Remuneración ----
     public DbSet<ContratoServicio> ContratosServicio => Set<ContratoServicio>();
@@ -327,6 +328,20 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.Property(x => x.Nacionalidad).HasMaxLength(50);
             e.Property(x => x.RentaPretendida).HasPrecision(12, 2);
             e.Property(x => x.TituloCV).HasMaxLength(200);
+        });
+
+        builder.Entity<PostulanteAccesoToken>(e =>
+        {
+            e.ToTable("PostulanteAccesoToken", schema: "Reclutamiento");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Token).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.Token).IsUnique();
+            e.Property(x => x.NombreContacto).HasMaxLength(200).IsRequired();
+            e.Property(x => x.CorreoContacto).HasMaxLength(200).IsRequired();
+            e.Property(x => x.TelefonoContacto).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Proposito).HasMaxLength(30).IsRequired();
+            e.HasOne<Solicitud>().WithMany().HasForeignKey(x => x.SolicitudId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Postulante>().WithMany().HasForeignKey(x => x.PostulanteId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<PostulanteSolicitud>(e =>
