@@ -1,59 +1,78 @@
+/* Portal público — identidad visual del sitio real sosgroup.cl (Poppins + rojo de marca #a71c1c),
+   deliberadamente distinta del dashboard interno: acá el candidato no debe sentir que está usando
+   una herramienta de back-office. */
 .publico-shell {
+    --pub-red: #a71c1c;
+    --pub-red-dark: #8a1717;
+    --pub-ink: #1f1f1f;
+    --pub-ink-soft: #5a5a5a;
+    --pub-ink-faint: #8c8c8c;
+    --pub-line: #e6e6e6;
+    --pub-surface: #ffffff;
+    --pub-paper: #f7f7f8;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: var(--paper);
+    background: var(--pub-paper);
+    font-family: 'Poppins', 'Segoe UI', Helvetica, Arial, sans-serif;
+    color: var(--pub-ink);
 }
 
 .publico-header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    padding: 14px 20px;
+    background: var(--pub-surface);
+    border-bottom: 1px solid var(--pub-line);
+    padding: 16px 28px;
     box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .publico-brand {
     display: flex;
     align-items: center;
-    gap: 14px;
     text-decoration: none;
-    max-width: 1000px;
-    margin: 0 auto;
 }
 
 .publico-brand img {
-    height: 36px;
+    height: 34px;
     width: auto;
     display: block;
 }
 
-.publico-brand span {
-    font-family: 'Barlow Condensed', 'Arial Narrow', Helvetica, Arial, sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--ink);
+.publico-header-tag {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--pub-red);
     letter-spacing: .2px;
+    padding-left: 16px;
+    border-left: 1px solid var(--pub-line);
 }
 
 .publico-main {
     flex: 1 1 auto;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1180px;
     margin: 0 auto;
-    padding: 24px 20px 48px;
+    padding: 28px 28px 48px;
     box-sizing: border-box;
 }
 
 .publico-footer {
     text-align: center;
     font-size: 12px;
-    color: var(--ink-faint);
+    color: var(--pub-ink-faint);
     padding: 18px 20px;
 }
 
 @media (max-width: 560px) {
-    .publico-brand span {
-        font-size: 15px;
+    .publico-header {
+        padding: 14px 16px;
+    }
+
+    .publico-header-tag {
+        font-size: 12.5px;
+        padding-left: 12px;
     }
 
     .publico-main {

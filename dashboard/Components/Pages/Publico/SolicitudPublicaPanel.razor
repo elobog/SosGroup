@@ -1,0 +1,153 @@
+@using System.ComponentModel.DataAnnotations
+@using dashboard.Data
+@inject PostulacionPublicaService PostulacionPublicaService
+@inject NavigationManager NavigationManager
+
+@if (detalle is null)
+{
+    <div class="pub-detail-panel"><div class="pub-empty-state">Esta búsqueda ya no está disponible.</div></div>
+}
+else
+{
+    <div class="pub-detail-panel">
+        <div class="pub-detail-head">
+            <h2 class="pub-detail-title">@detalle.CargoNombre</h2>
+            <p class="pub-detail-sub">
+                @detalle.ClienteRazonSocial
+                @if (!string.IsNullOrWhiteSpace(detalle.DireccionServicio))
+                {
+                    @: — @detalle.DireccionServicio
+                }
+            </p>
+        </div>
+        <div class="pub-detail-body">
+            <div class="pub-detail-grid">
+                <div><span class="pub-field-lbl">Fecha de inicio</span><span class="pub-field-val" style="margin:0;">@detalle.FechaInicioServicio.ToString("dd-MM-yyyy")</span></div>
+                @if (!string.IsNullOrWhiteSpace(detalle.EducacionMinima))
+                {
+                    <div><span class="pub-field-lbl">Educación mínima</span><span class="pub-field-val" style="margin:0;">@detalle.EducacionMinima</span></div>
+                }
+                @if (detalle.AniosExperienciaMinimo is not null)
+                {
+                    <div><span class="pub-field-lbl">Experiencia mínima</span><span class="pub-field-val" style="margin:0;">@detalle.AniosExperienciaMinimo años</span></div>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(detalle.Descripcion))
+            {
+                <span class="pub-field-lbl">Descripción</span>
+                <p class="pub-field-val">@detalle.Descripcion</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(detalle.ObjetivoCargo))
+            {
+                <span class="pub-field-lbl">Objetivo del cargo</span>
+                <p class="pub-field-val">@detalle.ObjetivoCargo</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(detalle.Requisitos))
+            {
+                <span class="pub-field-lbl">Requisitos</span>
+                <p class="pub-field-val">@detalle.Requisitos</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(detalle.ConocimientosTecnicos))
+            {
+                <span class="pub-field-lbl">Conocimientos técnicos</span>
+                <p class="pub-field-val">@detalle.ConocimientosTecnicos</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(detalle.CondicionesEspeciales))
+            {
+                <span class="pub-field-lbl">Condiciones especiales</span>
+                <p class="pub-field-val">@detalle.CondicionesEspeciales</p>
+            }
+
+            <hr style="border:0; border-top:1px solid var(--pub-line); margin:20px 0 24px;" />
+
+            @if (enviado)
+            {
+                <p class="pub-field-val" style="margin:0;"><b>¡Listo!</b> Te enviamos un correo a <b>@form.Correo</b> para confirmar tu postulación. Revisa tu bandeja de entrada (y spam) y sigue el link para continuar.</p>
+            }
+            else
+            {
+                <EditForm Model="form" OnValidSubmit="EnviarAsync">
+                    <DataAnnotationsValidator />
+                    <div class="pub-form-field">
+                        <label>Nombre completo</label>
+                        <InputText @bind-Value="form.Nombre" />
+                        <ValidationMessage For="() => form.Nombre" class="text-danger" />
+                    </div>
+                    <div class="pub-form-field">
+                        <label>Correo</label>
+                        <InputText @bind-Value="form.Correo" />
+                        <ValidationMessage For="() => form.Correo" class="text-danger" />
+                    </div>
+                    <div class="pub-form-field">
+                        <label>Teléfono</label>
+                        <InputText @bind-Value="form.Telefono" />
+                        <ValidationMessage For="() => form.Telefono" class="text-danger" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(error))
+                    {
+                        <p class="text-danger" style="margin:0 0 12px;">@error</p>
+                    }
+                    <button type="submit" class="pub-btn-primary" disabled="@enviando">Postularme</button>
+                </EditForm>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int SolicitudId { get; set; }
+
+    private PostulacionPublicaService.SolicitudPublicaDetalle? detalle;
+    private FormModel form = new();
+    private bool enviando;
+    private bool enviado;
+    private string? error;
+    private int? solicitudIdCargada;
+
+    // El padre pasa un SolicitudId distinto cada vez que el candidato elige otra búsqueda de la
+    // lista — si no reseteamos el formulario acá, quedaría con los datos escritos para otro cargo.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (solicitudIdCargada == SolicitudId) return;
+        solicitudIdCargada = SolicitudId;
+
+        detalle = await PostulacionPublicaService.ObtenerSolicitudPublicaAsync(SolicitudId);
+        form = new FormModel();
+        enviado = false;
+        error = null;
+    }
+
+    private async Task EnviarAsync()
+    {
+        enviando = true;
+        error = null;
+        try
+        {
+            await PostulacionPublicaService.IniciarPostulacionAsync(SolicitudId, form.Nombre, form.Correo, form.Telefono, NavigationManager.BaseUri);
+            enviado = true;
+        }
+        catch (Exception)
+        {
+            error = "No pudimos procesar tu postulación. Intenta nuevamente en unos minutos.";
+        }
+        finally
+        {
+            enviando = false;
+        }
+    }
+
+    private sealed class FormModel
+    {
+        [Required(ErrorMessage = "Ingresa tu nombre.")]
+        public string Nombre { get; set; } = "";
+
+        [Required(ErrorMessage = "Ingresa tu correo.")]
+        [EmailAddress(ErrorMessage = "Correo inválido.")]
+        public string Correo { get; set; } = "";
+
+        [Required(ErrorMessage = "Ingresa tu teléfono.")]
+        public string Telefono { get; set; } = "";
+    }
+}
