@@ -19,6 +19,8 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
 
     public record PostulanteDatosInput(string RUT, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, string? EstadoCivil, string? Nacionalidad, bool? Discapacidad, decimal? RentaPretendida, string? DescripcionProfesional, string? Habilidades);
 
+    public record DocumentoInput(string Tipo, string NombreArchivo, Stream Contenido);
+
     public async Task<List<SolicitudPublicaResumen>> ListarSolicitudesAbiertasAsync()
     {
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -95,7 +97,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
 
     // Recién acá se crea/actualiza el Postulante (el RUT no se conoce antes de este paso) y se marca
     // el token como usado — "aceptar la política" y "completar datos" son una sola transacción.
-    public async Task<bool> CompletarDatosAsync(string token, PostulanteDatosInput datos, Stream? cv, string? cvNombreArchivo)
+    public async Task<bool> CompletarDatosAsync(string token, PostulanteDatosInput datos, List<DocumentoInput> documentos)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -131,10 +133,10 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         postulante.FechaAceptacionPolitica = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        if (cv is not null && cvNombreArchivo is not null)
+        foreach (var documento in documentos)
         {
-            var rutaBlob = await blobStorage.SubirDocumentoPostulanteAsync(postulante.Id, cvNombreArchivo, cv);
-            db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = "CV", RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
+            var rutaBlob = await blobStorage.SubirDocumentoPostulanteAsync(postulante.Id, documento.NombreArchivo, documento.Contenido);
+            db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = documento.Tipo, RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
         }
 
         var yaPostulado = await db.PostulanteSolicitudes.AnyAsync(ps => ps.PostulanteId == postulante.Id && ps.SolicitudId == accesoToken.SolicitudId);

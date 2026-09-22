@@ -56,8 +56,40 @@ else
                 <label>Currículum (PDF)</label>
                 <div class="file-picker">
                     <label class="btn-ghost" for="cvInput" style="cursor:pointer;">Elegir archivo</label>
-                    <InputFile id="cvInput" OnChange="SeleccionarCv" accept=".pdf" />
+                    <InputFile id="cvInput" OnChange="@(e => cv = e.File)" accept=".pdf" />
                     <span class="file-picker-name">@(cv?.Name ?? "Ningún archivo seleccionado")</span>
+                </div>
+            </div>
+            <div class="form-field" style="grid-column:1/-1;">
+                <label>Certificado de antecedentes (PDF)</label>
+                <div class="file-picker">
+                    <label class="btn-ghost" for="certificadoAntecedentesInput" style="cursor:pointer;">Elegir archivo</label>
+                    <InputFile id="certificadoAntecedentesInput" OnChange="@(e => certificadoAntecedentes = e.File)" accept=".pdf" />
+                    <span class="file-picker-name">@(certificadoAntecedentes?.Name ?? "Ningún archivo seleccionado")</span>
+                </div>
+            </div>
+            <div class="form-field" style="grid-column:1/-1;">
+                <label>Certificado de Isapre/Fonasa (PDF)</label>
+                <div class="file-picker">
+                    <label class="btn-ghost" for="certificadoIsapreFonasaInput" style="cursor:pointer;">Elegir archivo</label>
+                    <InputFile id="certificadoIsapreFonasaInput" OnChange="@(e => certificadoIsapreFonasa = e.File)" accept=".pdf" />
+                    <span class="file-picker-name">@(certificadoIsapreFonasa?.Name ?? "Ningún archivo seleccionado")</span>
+                </div>
+            </div>
+            <div class="form-field" style="grid-column:1/-1;">
+                <label>Certificado AFP (PDF)</label>
+                <div class="file-picker">
+                    <label class="btn-ghost" for="certificadoAfpInput" style="cursor:pointer;">Elegir archivo</label>
+                    <InputFile id="certificadoAfpInput" OnChange="@(e => certificadoAfp = e.File)" accept=".pdf" />
+                    <span class="file-picker-name">@(certificadoAfp?.Name ?? "Ningún archivo seleccionado")</span>
+                </div>
+            </div>
+            <div class="form-field" style="grid-column:1/-1;">
+                <label>Último finiquito (PDF, opcional)</label>
+                <div class="file-picker">
+                    <label class="btn-ghost" for="ultimoFiniquitoInput" style="cursor:pointer;">Elegir archivo</label>
+                    <InputFile id="ultimoFiniquitoInput" OnChange="@(e => ultimoFiniquito = e.File)" accept=".pdf" />
+                    <span class="file-picker-name">@(ultimoFiniquito?.Name ?? "Ningún archivo seleccionado")</span>
                 </div>
             </div>
             <div class="form-actions" style="grid-column:1/-1;">
@@ -78,6 +110,10 @@ else
     private PostulacionPublicaService.TokenInfo? info;
     private FormModel form = new();
     private IBrowserFile? cv;
+    private IBrowserFile? certificadoAntecedentes;
+    private IBrowserFile? certificadoIsapreFonasa;
+    private IBrowserFile? certificadoAfp;
+    private IBrowserFile? ultimoFiniquito;
     private bool enviando;
     private bool enviado;
     private string? error;
@@ -88,34 +124,35 @@ else
         info = resultado is { Valido: true } ? resultado : null;
     }
 
-    private void SeleccionarCv(InputFileChangeEventArgs e) => cv = e.File;
-
     private async Task EnviarAsync()
     {
+        var faltantes = new List<string>();
+        if (cv is null) faltantes.Add("Currículum");
+        if (certificadoAntecedentes is null) faltantes.Add("Certificado de antecedentes");
+        if (certificadoIsapreFonasa is null) faltantes.Add("Certificado de Isapre/Fonasa");
+        if (certificadoAfp is null) faltantes.Add("Certificado AFP");
+        if (faltantes.Count > 0)
+        {
+            error = $"Faltan documentos obligatorios: {string.Join(", ", faltantes)}.";
+            return;
+        }
+
         enviando = true;
         error = null;
         try
         {
             var datos = new PostulacionPublicaService.PostulanteDatosInput(form.RUT, string.IsNullOrWhiteSpace(form.Sexo) ? null : form.Sexo, form.Edad, form.Comuna, form.AniosExperiencia, form.RubroExperiencia, null, null, null, null, null, null);
 
-            if (cv is not null)
-            {
-                using var memoria = new MemoryStream();
-                await using (var stream = cv.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024))
-                {
-                    await stream.CopyToAsync(memoria);
-                }
-                memoria.Position = 0;
-                var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, memoria, cv.Name);
-                enviado = ok;
-                if (!ok) error = "Este link ya no es válido.";
-            }
-            else
-            {
-                var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, null, null);
-                enviado = ok;
-                if (!ok) error = "Este link ya no es válido.";
-            }
+            var documentos = new List<PostulacionPublicaService.DocumentoInput>();
+            await AgregarDocumentoAsync(documentos, "CV", cv);
+            await AgregarDocumentoAsync(documentos, "CertificadoAntecedentes", certificadoAntecedentes);
+            await AgregarDocumentoAsync(documentos, "CertificadoIsapreFonasa", certificadoIsapreFonasa);
+            await AgregarDocumentoAsync(documentos, "CertificadoAFP", certificadoAfp);
+            await AgregarDocumentoAsync(documentos, "UltimoFiniquito", ultimoFiniquito);
+
+            var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, documentos);
+            enviado = ok;
+            if (!ok) error = "Este link ya no es válido.";
         }
         catch (Exception)
         {
@@ -125,6 +162,19 @@ else
         {
             enviando = false;
         }
+    }
+
+    private static async Task AgregarDocumentoAsync(List<PostulacionPublicaService.DocumentoInput> documentos, string tipo, IBrowserFile? archivo)
+    {
+        if (archivo is null) return;
+
+        var memoria = new MemoryStream();
+        await using (var stream = archivo.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024))
+        {
+            await stream.CopyToAsync(memoria);
+        }
+        memoria.Position = 0;
+        documentos.Add(new PostulacionPublicaService.DocumentoInput(tipo, archivo.Name, memoria));
     }
 
     private sealed class FormModel
