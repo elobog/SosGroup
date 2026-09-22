@@ -262,9 +262,8 @@ else if (solicitudActual is not null)
 
     <div class="panel">
         <div class="panel-head"><h3>Postulantes</h3><span class="tag">@postulantes.Count</span></div>
-        <div style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between;">
-            <span>@postulantes.Count recibido(s), @postulantes.Count(p => p.SeleccionadoPreseleccion) activado(s) para Preselección.</span>
-            <a class="link-btn" href="@($"/Reclutamiento/Atraccion/{Id}")">Ir a Atracción →</a>
+        <div style="padding:16px 20px;">
+            <span>@postulantes.Count recibido(s), @postulantes.Count(p => p.SeleccionadoPreseleccion) activado(s) para Preselección. Ver y activar candidatos desde el módulo <b>Preselección</b> del sidebar.</span>
         </div>
     </div>
 }

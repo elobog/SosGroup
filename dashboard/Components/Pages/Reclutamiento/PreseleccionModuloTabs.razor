@@ -1,13 +1,10 @@
 <div class="subtabs">
-    <a class="subtab @(Activo == "Atraccion" ? "active" : "")" href="@($"/Reclutamiento/Atraccion/{SolicitudId}")">Atracción</a>
+    <a class="subtab @(Activo == "Candidatos" ? "active" : "")" href="@(SolicitudId is null ? "/Reclutamiento/Preseleccion" : $"/Reclutamiento/Preseleccion/{SolicitudId}")">Candidatos</a>
     <span class="subtab subtab-locked" title="Próximamente">
         <svg width="13" height="13" viewBox="0 0 20 20"><use href="#i-lock" /></svg> Preselección
     </span>
     <span class="subtab subtab-locked" title="Próximamente">
         <svg width="13" height="13" viewBox="0 0 20 20"><use href="#i-lock" /></svg> Evaluación
-    </span>
-    <span class="subtab subtab-locked" title="Próximamente">
-        <svg width="13" height="13" viewBox="0 0 20 20"><use href="#i-lock" /></svg> Validación
     </span>
 </div>
 
@@ -15,6 +12,6 @@
     [Parameter, EditorRequired]
     public string Activo { get; set; } = string.Empty;
 
-    [Parameter, EditorRequired]
-    public int SolicitudId { get; set; }
+    [Parameter]
+    public int? SolicitudId { get; set; }
 }

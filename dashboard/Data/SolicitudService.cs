@@ -11,7 +11,7 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
     // SuperAdmin/Admin/Supervisor Administrativo ven todo, sin filtro (BD_Dashboard.md § Identity — Acceso).
     private static readonly string[] RolesAcotados = ["Reclutador", "Supervisor Operaciones"];
 
-    public record SolicitudResumen(int Id, string CodigoSolicitud, string ClienteRazonSocial, string PerfilCargoNombre, DateTime FechaInicioServicio, string SupervisorNombre, string Estado);
+    public record SolicitudResumen(int Id, string CodigoSolicitud, string ClienteRazonSocial, string PerfilCargoNombre, DateTime FechaInicioServicio, string SupervisorNombre, string Estado, int PostulantesCount);
 
     public async Task<List<SolicitudResumen>> ListarAsync(string usuarioId, IReadOnlyCollection<string> roles)
     {
@@ -31,7 +31,14 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
         }
 
         var resultado = await query.OrderByDescending(x => x.s.FechaCreacion).ToListAsync();
-        return resultado.Select(x => new SolicitudResumen(x.s.Id, x.s.CodigoSolicitud, x.RazonSocial, x.PerfilNombre, x.s.FechaInicioServicio, x.SupervisorNombre, x.s.Estado)).ToList();
+        var solicitudIds = resultado.Select(x => x.s.Id).ToList();
+        var conteos = await db.PostulanteSolicitudes
+            .Where(ps => solicitudIds.Contains(ps.SolicitudId))
+            .GroupBy(ps => ps.SolicitudId)
+            .Select(g => new { SolicitudId = g.Key, Cantidad = g.Count() })
+            .ToDictionaryAsync(x => x.SolicitudId, x => x.Cantidad);
+
+        return resultado.Select(x => new SolicitudResumen(x.s.Id, x.s.CodigoSolicitud, x.RazonSocial, x.PerfilNombre, x.s.FechaInicioServicio, x.SupervisorNombre, x.s.Estado, conteos.GetValueOrDefault(x.s.Id))).ToList();
     }
 
     private static async Task<HashSet<int>> ClientesAsignadosAsync(ApplicationDbContext db, string usuarioId, IReadOnlyCollection<string> roles)

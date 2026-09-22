@@ -15,7 +15,7 @@ public static class PortalDefinicion
     public static readonly Dictionary<string, HashSet<string>> ModulosConstruidos = new()
     {
         ["Admin"] = ["Clientes", "Usuarios", "Perfiles", "Accesos"],
-        ["Reclutamiento"] = ["Solicitud"],
+        ["Reclutamiento"] = ["Solicitud", "Preseleccion"],
         ["Remuneracion"] = ["Contratos"],
     };
 
@@ -26,6 +26,7 @@ public static class PortalDefinicion
         ["Admin:Perfiles"] = "/Admin/Perfiles",
         ["Admin:Accesos"] = "/Admin/Accesos",
         ["Reclutamiento:Solicitud"] = "/Reclutamiento/Solicitud",
+        ["Reclutamiento:Preseleccion"] = "/Reclutamiento/Preseleccion",
         ["Remuneracion:Contratos"] = "/Remuneracion/Contratos",
     };
 
