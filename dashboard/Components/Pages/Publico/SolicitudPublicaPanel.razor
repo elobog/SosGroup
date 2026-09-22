@@ -10,18 +10,20 @@
 else
 {
     <div class="pub-detail-panel">
-        <div class="pub-detail-head">
-            <h2 class="pub-detail-title">@detalle.CargoNombre</h2>
-            <p class="pub-detail-sub">
-                @detalle.ClienteRazonSocial
-                @if (!string.IsNullOrWhiteSpace(detalle.DireccionServicio))
-                {
-                    @: — @detalle.DireccionServicio
-                }
-            </p>
+        <div class="pub-detail-head pub-detail-head-row">
+            <div>
+                <h2 class="pub-detail-title">@detalle.CargoNombre</h2>
+                <p class="pub-detail-sub">
+                    @detalle.ClienteRazonSocial
+                    @if (!string.IsNullOrWhiteSpace(detalle.DireccionServicio))
+                    {
+                        @: — @detalle.DireccionServicio
+                    }
+                </p>
+            </div>
             @if (!enviado)
             {
-                <a href="#pub-form-@SolicitudId" class="pub-btn-primary pub-btn-top">Postularme</a>
+                <a href="#pub-form-@SolicitudId" class="pub-btn-primary pub-btn-sm">Postularme</a>
             }
         </div>
         <div class="pub-detail-body">
