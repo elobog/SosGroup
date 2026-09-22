@@ -1,0 +1,171 @@
+@page "/Reclutamiento/Atraccion/{SolicitudId:int}"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Supervisor Operaciones,Supervisor Administrativo,Reclutador")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using dashboard.Data
+@using SolicitudModel = dashboard.Models.Reclutamiento.Solicitud
+
+@inject SolicitudService SolicitudService
+@inject PerfilCargoService PerfilCargoService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Atracción | SOS Group</PageTitle>
+
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><a href="@($"/Reclutamiento/Solicitud/{SolicitudId}")">Reclutamiento / Solicitud</a> / Atracción</div>
+        <h1>@(solicitudActual?.CodigoSolicitud ?? "Atracción") — @perfilNombre</h1>
+    </div>
+</div>
+
+<PreseleccionModuloTabs Activo="Atraccion" SolicitudId="SolicitudId" />
+
+@if (solicitudActual is not null)
+{
+    <div class="panel">
+        <div class="panel-head">
+            <h3>Postulantes</h3>
+            <span class="tag">@postulantes.Count</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" checked="@todosSeleccionados" @onchange="ToggleTodos" /></th>
+                        <th>Nombre</th>
+                        <th>RUT</th>
+                        <th>Correo</th>
+                        <th>Teléfono</th>
+                        <th>Fecha</th>
+                        <th>Documentos</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in postulantes)
+                    {
+                        <tr>
+                            <td>
+                                <input type="checkbox"
+                                       checked="@(p.SeleccionadoPreseleccion || seleccionados.Contains(p.PostulanteSolicitudId))"
+                                       disabled="@p.SeleccionadoPreseleccion"
+                                       @onchange="e => ToggleUno(p.PostulanteSolicitudId, (bool)e.Value!)" />
+                            </td>
+                            <td>@p.Nombre</td>
+                            <td>@p.RUT</td>
+                            <td>@(p.Correo ?? "—")</td>
+                            <td>@(p.Telefono ?? "—")</td>
+                            <td>@p.FechaIngreso.ToString("dd-MM-yyyy")</td>
+                            <td class="wrap">
+                                @if (p.Documentos.Count == 0)
+                                {
+                                    <span style="color:var(--ink-faint);">Sin documentos</span>
+                                }
+                                else
+                                {
+                                    @foreach (var d in p.Documentos)
+                                    {
+                                        <a class="link-btn" href="@($"/reclutamiento/postulantes/documentos/{d.Id}")" target="_blank" style="margin-right:10px;">@SolicitudService.EtiquetaDocumento(d.Tipo)</a>
+                                    }
+                                }
+                            </td>
+                            <td>
+                                @if (p.SeleccionadoPreseleccion)
+                                {
+                                    <span class="pill ok">Activado</span>
+                                }
+                                else
+                                {
+                                    <span class="pill pending">Pendiente</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (postulantes.Count == 0)
+                    {
+                        <tr><td colspan="8" style="color:var(--ink-faint);">Sin postulaciones recibidas todavía por el portal público.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="form-actions">
+            @if (!string.IsNullOrEmpty(mensaje))
+            {
+                <span>@mensaje</span>
+            }
+            <button class="btn-primary" disabled="@(seleccionados.Count == 0)" @onclick="ActivarAsync">Activar seleccionados para Preselección</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int SolicitudId { get; set; }
+
+    private string usuarioId = string.Empty;
+    private SolicitudModel? solicitudActual;
+    private string perfilNombre = string.Empty;
+    private List<SolicitudService.PostulanteRecibido> postulantes = [];
+    private HashSet<int> seleccionados = [];
+    private string? mensaje;
+
+    private bool todosSeleccionados => postulantes.Count > 0 && postulantes.All(p => p.SeleccionadoPreseleccion || seleccionados.Contains(p.PostulanteSolicitudId));
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        usuarioId = UserManager.GetUserId(authState.User) ?? string.Empty;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        solicitudActual = await SolicitudService.ObtenerAsync(SolicitudId);
+        if (solicitudActual is null)
+        {
+            NavigationManager.NavigateTo("/Reclutamiento/Solicitud", forceLoad: true);
+            return;
+        }
+
+        perfilNombre = await PerfilCargoService.ObtenerNombrePorVersionAsync(solicitudActual.PerfilCargoVersionId) ?? "—";
+        postulantes = await SolicitudService.ListarPostulantesAsync(SolicitudId);
+        seleccionados.Clear();
+    }
+
+    private void ToggleUno(int postulanteSolicitudId, bool marcado)
+    {
+        if (marcado) seleccionados.Add(postulanteSolicitudId);
+        else seleccionados.Remove(postulanteSolicitudId);
+    }
+
+    private void ToggleTodos(ChangeEventArgs e)
+    {
+        var marcar = (bool)e.Value!;
+        seleccionados.Clear();
+        if (marcar)
+        {
+            foreach (var p in postulantes.Where(p => !p.SeleccionadoPreseleccion))
+            {
+                seleccionados.Add(p.PostulanteSolicitudId);
+            }
+        }
+    }
+
+    private async Task ActivarAsync()
+    {
+        var cantidad = seleccionados.Count;
+        await SolicitudService.ActivarPostulantesAsync(SolicitudId, seleccionados.ToList(), usuarioId);
+        mensaje = $"{cantidad} postulante(s) activado(s).";
+        await CargarAsync();
+    }
+}

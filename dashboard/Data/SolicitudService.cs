@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using dashboard.Models;
 using dashboard.Models.Reclutamiento;
 
 namespace dashboard.Data;
@@ -72,10 +73,20 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
     }
 
     public record PostulanteDocumentoResumen(int Id, string Tipo, DateTime FechaCarga);
-    public record PostulanteRecibido(int PostulanteId, string Nombre, string RUT, string? Correo, string? Telefono, DateTime FechaIngreso, List<PostulanteDocumentoResumen> Documentos);
+    public record PostulanteRecibido(int PostulanteSolicitudId, int PostulanteId, string Nombre, string RUT, string? Correo, string? Telefono, DateTime FechaIngreso, bool SeleccionadoPreseleccion, List<PostulanteDocumentoResumen> Documentos);
+
+    public static string EtiquetaDocumento(string tipo) => tipo switch
+    {
+        "CV" => "Currículum",
+        "CertificadoAntecedentes" => "Cert. Antecedentes",
+        "CertificadoIsapreFonasa" => "Cert. Isapre/Fonasa",
+        "CertificadoAFP" => "Cert. AFP",
+        "UltimoFiniquito" => "Último Finiquito",
+        _ => tipo,
+    };
 
     // Módulo Postulación (Fase 1) — lectura de los postulantes que entraron por el portal público
-    // para esta Solicitud. Sin flujo de etapas/precalificación todavía (eso es Atracción, Módulo 2).
+    // para esta Solicitud. La usan tanto el resumen de la ficha como la tabla completa de Atracción.
     public async Task<List<PostulanteRecibido>> ListarPostulantesAsync(int solicitudId)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -84,19 +95,51 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
                                   where ps.SolicitudId == solicitudId
                                   join p in db.Postulantes on ps.PostulanteId equals p.Id
                                   orderby ps.FechaIngreso descending
-                                  select new { p.Id, p.Nombre, p.RUT, p.Correo, p.Telefono, ps.FechaIngreso })
+                                  select new { PostulanteSolicitudId = ps.Id, PostulanteId = p.Id, p.Nombre, p.RUT, p.Correo, p.Telefono, ps.FechaIngreso, ps.SeleccionadoPreseleccion })
             .ToListAsync();
 
-        var postulanteIds = postulantes.Select(p => p.Id).ToList();
+        var postulanteIds = postulantes.Select(p => p.PostulanteId).ToList();
         var documentos = await db.PostulanteDocumentos
             .Where(d => postulanteIds.Contains(d.PostulanteId))
             .OrderBy(d => d.FechaCarga)
             .ToListAsync();
 
         return postulantes.Select(p => new PostulanteRecibido(
-            p.Id, p.Nombre, p.RUT, p.Correo, p.Telefono, p.FechaIngreso,
-            documentos.Where(d => d.PostulanteId == p.Id).Select(d => new PostulanteDocumentoResumen(d.Id, d.Tipo, d.FechaCarga)).ToList()
+            p.PostulanteSolicitudId, p.PostulanteId, p.Nombre, p.RUT, p.Correo, p.Telefono, p.FechaIngreso, p.SeleccionadoPreseleccion,
+            documentos.Where(d => d.PostulanteId == p.PostulanteId).Select(d => new PostulanteDocumentoResumen(d.Id, d.Tipo, d.FechaCarga)).ToList()
         )).ToList();
+    }
+
+    // Activa postulantes hacia Preselección (Módulo 2) — sin flujo de precalificación todavía,
+    // el Reclutador elige directo. Acotado a solicitudId para que no se pueda activar de otra Solicitud.
+    public async Task ActivarPostulantesAsync(int solicitudId, List<int> postulanteSolicitudIds, string usuarioId)
+    {
+        if (postulanteSolicitudIds.Count == 0) return;
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var filas = await db.PostulanteSolicitudes
+            .Where(ps => ps.SolicitudId == solicitudId && postulanteSolicitudIds.Contains(ps.Id) && !ps.SeleccionadoPreseleccion)
+            .ToListAsync();
+
+        foreach (var fila in filas)
+        {
+            fila.SeleccionadoPreseleccion = true;
+            fila.EtapaPreseleccion = "Preseleccionado";
+        }
+
+        if (filas.Count > 0)
+        {
+            db.LogsActividad.Add(new LogActividad
+            {
+                UsuarioId = usuarioId,
+                Accion = $"Activó {filas.Count} postulante(s) para Preselección",
+                Entidad = "Solicitud",
+                EntidadId = solicitudId,
+            });
+        }
+
+        await db.SaveChangesAsync();
     }
 
     public async Task<int> CrearAsync(Solicitud solicitud, SolicitudDetalle primeraRonda)
