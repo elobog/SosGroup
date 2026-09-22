@@ -19,6 +19,10 @@ else
                     @: — @detalle.DireccionServicio
                 }
             </p>
+            @if (!enviado)
+            {
+                <a href="#pub-form-@SolicitudId" class="pub-btn-primary pub-btn-top">Postularme</a>
+            }
         </div>
         <div class="pub-detail-body">
             <div class="pub-detail-grid">
@@ -67,7 +71,7 @@ else
             }
             else
             {
-                <EditForm Model="form" OnValidSubmit="EnviarAsync">
+                <EditForm id="@($"pub-form-{SolicitudId}")" Model="form" OnValidSubmit="EnviarAsync">
                     <DataAnnotationsValidator />
                     <div class="pub-form-field">
                         <label>Nombre completo</label>

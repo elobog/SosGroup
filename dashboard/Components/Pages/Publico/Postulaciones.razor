@@ -32,15 +32,18 @@ else
 
             @foreach (var s in solicitudesFiltradas)
             {
-                <button type="button" class="pub-job-card @(s.Id == solicitudIdActual ? "selected" : "")" @onclick="() => Seleccionar(s.Id)">
-                    <p class="pub-job-title">@s.CargoNombre</p>
+                <div role="button" tabindex="0" class="pub-job-card @(s.Id == solicitudIdActual ? "selected" : "")" @onclick="() => Seleccionar(s.Id)">
+                    <div class="pub-job-card-head">
+                        <p class="pub-job-title">@s.CargoNombre</p>
+                        <button type="button" class="pub-btn-primary pub-btn-sm" @onclick="() => Seleccionar(s.Id)" @onclick:stopPropagation="true">Postularme</button>
+                    </div>
                     <p class="pub-job-meta">@s.ClienteRazonSocial</p>
                     @if (!string.IsNullOrWhiteSpace(s.DireccionServicio))
                     {
                         <p class="pub-job-meta">@s.DireccionServicio</p>
                     }
                     <p class="pub-job-time">Inicio: @s.FechaInicioServicio.ToString("dd-MM-yyyy")</p>
-                </button>
+                </div>
             }
 
             @if (solicitudesFiltradas.Count == 0)
