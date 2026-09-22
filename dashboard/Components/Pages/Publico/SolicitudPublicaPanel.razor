@@ -82,12 +82,12 @@ else
                     </div>
                     <div class="pub-form-field">
                         <label>Correo</label>
-                        <InputText @bind-Value="form.Correo" />
+                        <InputText @bind-Value="form.Correo" @bind-Value:event="oninput" placeholder="nombre@correo.cl" />
                         <ValidationMessage For="() => form.Correo" class="text-danger" />
                     </div>
                     <div class="pub-form-field">
                         <label>Teléfono</label>
-                        <InputText @bind-Value="form.Telefono" />
+                        <InputText @bind-Value="form.Telefono" @bind-Value:event="oninput" placeholder="+56 9 1234 5678" />
                         <ValidationMessage For="() => form.Telefono" class="text-danger" />
                     </div>
                     @if (!string.IsNullOrEmpty(error))
@@ -150,10 +150,11 @@ else
         public string Nombre { get; set; } = "";
 
         [Required(ErrorMessage = "Ingresa tu correo.")]
-        [EmailAddress(ErrorMessage = "Correo inválido.")]
+        [RegularExpression(@"^[^\s@]+@[^\s@]+\.[^\s@]+$", ErrorMessage = "Ingresa un correo válido (ej. nombre@correo.cl).")]
         public string Correo { get; set; } = "";
 
         [Required(ErrorMessage = "Ingresa tu teléfono.")]
+        [RegularExpression(@"^(\+?56)?[\s-]?9[\s-]?\d{4}[\s-]?\d{4}$", ErrorMessage = "Ingresa un celular chileno válido (ej. +56 9 1234 5678).")]
         public string Telefono { get; set; } = "";
     }
 }
