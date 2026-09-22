@@ -32,10 +32,10 @@ else
             {
                 @foreach (var p in info.Postulaciones)
                 {
-                    <div style="padding:10px 0; border-bottom:1px solid var(--pub-line);">
+                    <div style="padding:14px 0; border-bottom:1px solid var(--pub-line);">
                         <p class="pub-job-title" style="margin:0 0 4px;">@p.CargoNombre</p>
                         <p class="pub-job-meta" style="margin:0;">@p.ClienteRazonSocial — postulaste el @p.FechaIngreso.ToString("dd-MM-yyyy")</p>
-                        <p class="pub-job-meta" style="margin:2px 0 0;">Estado: @(p.EtapaEvaluacion ?? p.EtapaPreseleccion ?? "En revisión")</p>
+                        <LineaTiempoPostulacion FechaRecibida="p.FechaIngreso" DatosCompletos="info.DatosCompletos" EnPreseleccion="p.SeleccionadoPreseleccion" Resultado="@p.EtapaEvaluacion" />
                     </div>
                 }
             }

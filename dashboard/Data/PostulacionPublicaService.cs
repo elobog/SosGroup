@@ -22,9 +22,12 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
 
     public record DocumentoInput(string Tipo, string NombreArchivo, Stream Contenido);
 
-    public record MiPostulacionResumen(int SolicitudId, string CargoNombre, string ClienteRazonSocial, DateTime FechaIngreso, string? EtapaPreseleccion, string? EtapaEvaluacion);
+    // Los 4 pasos de la línea de tiempo pública: recibida siempre true, DatosCompletos vive en el
+    // Postulante (política aceptada — no todos la tienen aún, ej. carga masiva sin invitar todavía),
+    // SeleccionadoPreseleccion y EtapaEvaluacion son los mismos campos que ya usa Reclutamiento.
+    public record MiPostulacionResumen(int SolicitudId, string CargoNombre, string ClienteRazonSocial, DateTime FechaIngreso, bool SeleccionadoPreseleccion, string? EtapaEvaluacion);
 
-    public record MiCuentaInfo(string Token, string Nombre, string RUT, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, List<MiPostulacionResumen> Postulaciones, List<string> DocumentosCargados);
+    public record MiCuentaInfo(string Token, string Nombre, string RUT, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, bool DatosCompletos, List<MiPostulacionResumen> Postulaciones, List<string> DocumentosCargados);
 
     public record MiCuentaDatosInput(string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia);
 
@@ -253,7 +256,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
                                     join pc in db.PerfilesCargo on pv.PerfilCargoId equals pc.Id
                                     join c in db.Clientes on s.ClienteId equals c.Id
                                     orderby ps.FechaIngreso descending
-                                    select new MiPostulacionResumen(s.Id, pc.Nombre, c.RazonSocial, ps.FechaIngreso, ps.EtapaPreseleccion, ps.EtapaEvaluacion))
+                                    select new MiPostulacionResumen(s.Id, pc.Nombre, c.RazonSocial, ps.FechaIngreso, ps.SeleccionadoPreseleccion, ps.EtapaEvaluacion))
             .ToListAsync();
 
         var documentos = await db.PostulanteDocumentos
@@ -262,7 +265,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
             .Distinct()
             .ToListAsync();
 
-        return new MiCuentaInfo(token, postulante.Nombre, postulante.RUT, postulante.Sexo, postulante.Edad, postulante.Comuna, postulante.AniosExperiencia, postulante.RubroExperiencia, postulaciones, documentos);
+        return new MiCuentaInfo(token, postulante.Nombre, postulante.RUT, postulante.Sexo, postulante.Edad, postulante.Comuna, postulante.AniosExperiencia, postulante.RubroExperiencia, postulante.PoliticaAceptada, postulaciones, documentos);
     }
 
     // A diferencia de CompletarDatosAsync (primera vez, no pisa datos existentes), acá el candidato está

@@ -1,0 +1,60 @@
+@* Línea de tiempo de 4 pasos para una postulación, basada 100% en campos que ya existen
+   (PostulanteSolicitud/Postulante) — ningún dato nuevo, solo se visualiza lo que Reclutamiento
+   ya usa internamente en el módulo Candidatos. *@
+
+<div class="pub-timeline">
+    <div class="pub-timeline-step done">
+        <span class="pub-timeline-dot"></span>
+        <span class="pub-timeline-label">Postulación recibida</span>
+        <span class="pub-timeline-date">@FechaRecibida.ToString("dd-MM-yyyy")</span>
+    </div>
+    <div class="pub-timeline-connector @(DatosCompletos ? "done" : "")"></div>
+
+    <div class="pub-timeline-step @(DatosCompletos ? "done" : "pending")">
+        <span class="pub-timeline-dot"></span>
+        <span class="pub-timeline-label">Datos y documentos completos</span>
+        @if (!DatosCompletos)
+        {
+            <span class="pub-timeline-date">Pendiente</span>
+        }
+    </div>
+    <div class="pub-timeline-connector @(EnPreseleccion ? "done" : "")"></div>
+
+    <div class="pub-timeline-step @(EnPreseleccion ? "done" : "pending")">
+        <span class="pub-timeline-dot"></span>
+        <span class="pub-timeline-label">En preselección</span>
+        @if (!EnPreseleccion)
+        {
+            <span class="pub-timeline-date">Pendiente</span>
+        }
+    </div>
+    <div class="pub-timeline-connector @(Resultado is not null ? "done" : "")"></div>
+
+    <div class="pub-timeline-step @EstadoResultado">
+        <span class="pub-timeline-dot"></span>
+        <span class="pub-timeline-label">Resultado</span>
+        <span class="pub-timeline-date">@(Resultado ?? "Pendiente")</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public DateTime FechaRecibida { get; set; }
+
+    [Parameter]
+    public bool DatosCompletos { get; set; }
+
+    [Parameter]
+    public bool EnPreseleccion { get; set; }
+
+    // null = todavía sin resolver; "Validado" / "Rechazado" = PostulanteSolicitud.EtapaEvaluacion tal cual.
+    [Parameter]
+    public string? Resultado { get; set; }
+
+    private string EstadoResultado => Resultado switch
+    {
+        "Validado" => "done ok",
+        "Rechazado" => "done rejected",
+        _ => "pending",
+    };
+}
