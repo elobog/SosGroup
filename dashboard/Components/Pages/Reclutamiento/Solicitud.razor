@@ -259,6 +259,44 @@ else if (solicitudActual is not null)
             </div>
         }
     </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Postulantes recibidos</h3><span class="tag">@postulantes.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nombre</th><th>RUT</th><th>Correo</th><th>Teléfono</th><th>Fecha</th><th>Documentos</th></tr></thead>
+                <tbody>
+                    @foreach (var p in postulantes)
+                    {
+                        <tr>
+                            <td>@p.Nombre</td>
+                            <td>@p.RUT</td>
+                            <td>@(p.Correo ?? "—")</td>
+                            <td>@(p.Telefono ?? "—")</td>
+                            <td>@p.FechaIngreso.ToString("dd-MM-yyyy")</td>
+                            <td class="wrap">
+                                @if (p.Documentos.Count == 0)
+                                {
+                                    <span style="color:var(--ink-faint);">Sin documentos</span>
+                                }
+                                else
+                                {
+                                    @foreach (var d in p.Documentos)
+                                    {
+                                        <a class="link-btn" href="@($"/reclutamiento/postulantes/documentos/{d.Id}")" target="_blank" style="margin-right:10px;">@EtiquetaDocumento(d.Tipo)</a>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (postulantes.Count == 0)
+                    {
+                        <tr><td colspan="6" style="color:var(--ink-faint);">Sin postulaciones recibidas todavía por el portal público.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
 }
 
 @code {
@@ -278,6 +316,7 @@ else if (solicitudActual is not null)
 
     private SolicitudModel? solicitudActual;
     private List<SolicitudDetalle> rondas = [];
+    private List<SolicitudService.PostulanteRecibido> postulantes = [];
     private List<ClienteSucursal> sucursalesCliente = [];
     private List<ClientesService.UsuarioAsignado> reclutadoresCliente = [];
     private List<ClientesService.UsuarioAsignado> supervisoresCliente = [];
@@ -358,6 +397,7 @@ else if (solicitudActual is not null)
         }
 
         rondas = await SolicitudService.ListarRondasAsync(id);
+        postulantes = await SolicitudService.ListarPostulantesAsync(id);
         sucursalesCliente = (await ClientesService.ListarSucursalesAsync(solicitudActual.ClienteId)).Where(s => s.Estado == "Activo").ToList();
         reclutadoresCliente = await ClientesService.ListarReclutadoresAsync(solicitudActual.ClienteId);
         supervisoresCliente = await ClientesService.ListarSupervisoresAsync(solicitudActual.ClienteId);
@@ -369,6 +409,16 @@ else if (solicitudActual is not null)
     }
 
     private string NombreReclutador(string reclutadorId) => reclutadoresCliente.FirstOrDefault(r => r.UsuarioId == reclutadorId)?.Nombre ?? "—";
+
+    private static string EtiquetaDocumento(string tipo) => tipo switch
+    {
+        "CV" => "Currículum",
+        "CertificadoAntecedentes" => "Cert. Antecedentes",
+        "CertificadoIsapreFonasa" => "Cert. Isapre/Fonasa",
+        "CertificadoAFP" => "Cert. AFP",
+        "UltimoFiniquito" => "Último Finiquito",
+        _ => tipo,
+    };
 
     private bool esReclutadorDeLaRonda(SolicitudDetalle ronda) =>
         roles.Any(r => r is "SuperAdmin" or "Admin") || (roles.Contains("Reclutador") && ronda.ReclutadorId == usuarioId);

@@ -80,4 +80,21 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
+// Descarga de documentos de un Postulante (CV/Certificados) desde la ficha de Solicitud. Los mismos
+// roles que ven Reclutamiento pueden descargar — el acceso por cliente asignado no se acota acá,
+// igual que SolicitudService.ObtenerAsync (ficha por Id, sin filtro de cliente).
+app.MapGet("/reclutamiento/postulantes/documentos/{documentoId:int}", async (int documentoId, IDbContextFactory<ApplicationDbContext> dbFactory, BlobStorageService blobStorage) =>
+{
+    await using var db = await dbFactory.CreateDbContextAsync();
+    var documento = await db.PostulanteDocumentos.FindAsync(documentoId);
+    if (documento is null) return Results.NotFound();
+
+    var contenido = await blobStorage.DescargarDocumentoPostulanteAsync(documento.RutaArchivo);
+    // RutaArchivo = "{postulanteId}/{guid}-{nombreOriginal}" (ver BlobStorageService.SubirDocumentoPostulanteAsync).
+    var nombreConGuid = documento.RutaArchivo[(documento.RutaArchivo.LastIndexOf('/') + 1)..];
+    var nombreArchivo = nombreConGuid.Length > 37 ? nombreConGuid[37..] : nombreConGuid;
+    return Results.File(contenido, "application/pdf", nombreArchivo);
+})
+.RequireAuthorization(policy => policy.RequireRole("SuperAdmin", "Admin", "Supervisor Operaciones", "Supervisor Administrativo", "Reclutador"));
+
 app.Run();

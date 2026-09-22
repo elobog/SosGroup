@@ -71,6 +71,34 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
         return await db.SolicitudDetalles.Where(d => d.SolicitudId == solicitudId).OrderBy(d => d.FechaSolicitud).ToListAsync();
     }
 
+    public record PostulanteDocumentoResumen(int Id, string Tipo, DateTime FechaCarga);
+    public record PostulanteRecibido(int PostulanteId, string Nombre, string RUT, string? Correo, string? Telefono, DateTime FechaIngreso, List<PostulanteDocumentoResumen> Documentos);
+
+    // Módulo Postulación (Fase 1) — lectura de los postulantes que entraron por el portal público
+    // para esta Solicitud. Sin flujo de etapas/precalificación todavía (eso es Atracción, Módulo 2).
+    public async Task<List<PostulanteRecibido>> ListarPostulantesAsync(int solicitudId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var postulantes = await (from ps in db.PostulanteSolicitudes
+                                  where ps.SolicitudId == solicitudId
+                                  join p in db.Postulantes on ps.PostulanteId equals p.Id
+                                  orderby ps.FechaIngreso descending
+                                  select new { p.Id, p.Nombre, p.RUT, p.Correo, p.Telefono, ps.FechaIngreso })
+            .ToListAsync();
+
+        var postulanteIds = postulantes.Select(p => p.Id).ToList();
+        var documentos = await db.PostulanteDocumentos
+            .Where(d => postulanteIds.Contains(d.PostulanteId))
+            .OrderBy(d => d.FechaCarga)
+            .ToListAsync();
+
+        return postulantes.Select(p => new PostulanteRecibido(
+            p.Id, p.Nombre, p.RUT, p.Correo, p.Telefono, p.FechaIngreso,
+            documentos.Where(d => d.PostulanteId == p.Id).Select(d => new PostulanteDocumentoResumen(d.Id, d.Tipo, d.FechaCarga)).ToList()
+        )).ToList();
+    }
+
     public async Task<int> CrearAsync(Solicitud solicitud, SolicitudDetalle primeraRonda)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
