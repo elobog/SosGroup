@@ -46,6 +46,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<PostulanteDocumento> PostulanteDocumentos => Set<PostulanteDocumento>();
     public DbSet<DocumentoExtraccionIA> DocumentosExtraccionIA => Set<DocumentoExtraccionIA>();
     public DbSet<PostulanteAccesoToken> PostulanteAccesoTokens => Set<PostulanteAccesoToken>();
+    public DbSet<PrecalificacionConfig> PrecalificacionConfigs => Set<PrecalificacionConfig>();
 
     // ---- Remuneración ----
     public DbSet<ContratoServicio> ContratosServicio => Set<ContratoServicio>();
@@ -461,6 +462,17 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasKey(x => x.Id);
             e.Property(x => x.Estado).HasMaxLength(20).IsRequired();
             e.HasOne<PostulanteDocumento>().WithMany().HasForeignKey(x => x.PostulanteDocumentoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PrecalificacionConfig>(e =>
+        {
+            e.ToTable("PrecalificacionConfig", schema: "Reclutamiento");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.SolicitudId).IsUnique();
+            e.Property(x => x.SexoObjetivo).HasMaxLength(20);
+            e.Property(x => x.ComunaObjetivo).HasMaxLength(300);
+            e.Property(x => x.RubroObjetivo).HasMaxLength(150);
+            e.HasOne<Solicitud>().WithMany().HasForeignKey(x => x.SolicitudId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // ===================== Remuneración =====================

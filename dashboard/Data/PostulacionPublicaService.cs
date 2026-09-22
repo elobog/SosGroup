@@ -15,7 +15,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
 
     public record SolicitudPublicaDetalle(int Id, string CargoNombre, string ClienteRazonSocial, string? Descripcion, string? Requisitos, string? ObjetivoCargo, string? EducacionMinima, int? AniosExperienciaMinimo, string? ConocimientosTecnicos, string? Habilidades, string? CondicionesEspeciales, DateTime FechaInicioServicio, string? DireccionServicio);
 
-    public record TokenInfo(string Token, int SolicitudId, string CargoNombre, string NombreContacto, string CorreoContacto, string TelefonoContacto, bool Valido);
+    public record TokenInfo(string Token, int SolicitudId, string CargoNombre, string NombreContacto, string CorreoContacto, string TelefonoContacto, bool Valido, string? RutConocido);
 
     public record PostulanteDatosInput(string RUT, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, string? EstadoCivil, string? Nacionalidad, bool? Discapacidad, decimal? RentaPretendida, string? DescripcionProfesional, string? Habilidades);
 
@@ -77,6 +77,44 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
             $"<p>Hola {nombre},</p><p>Para confirmar tu postulación y aceptar la política de datos personales, haz <a href='{link}'>clic aquí</a>.</p><p>Este link vence en 48 horas.</p>");
     }
 
+    // Invita a completar el portal público a un Postulante que ya existe (llegó por carga masiva de
+    // CVs en Atracción). A diferencia de IniciarPostulacionAsync, el token ya viene con PostulanteId
+    // seteado — CompletarDatosAsync lo usa para no crear un Postulante duplicado. Reutiliza las
+    // mismas páginas públicas (/postulaciones/verificar y /postulaciones/datos), sin páginas nuevas.
+    public async Task InvitarAsync(int postulanteSolicitudId, string urlBase)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var datos = await (from ps in db.PostulanteSolicitudes
+                            where ps.Id == postulanteSolicitudId
+                            join p in db.Postulantes on ps.PostulanteId equals p.Id
+                            select new { ps.SolicitudId, Postulante = p })
+            .SingleOrDefaultAsync();
+        if (datos is null) throw new InvalidOperationException("No se encontró la postulación.");
+        if (string.IsNullOrWhiteSpace(datos.Postulante.Correo))
+        {
+            throw new InvalidOperationException("El postulante no tiene correo registrado — no se puede invitar.");
+        }
+
+        var token = new PostulanteAccesoToken
+        {
+            Token = Guid.NewGuid().ToString("N"),
+            SolicitudId = datos.SolicitudId,
+            PostulanteId = datos.Postulante.Id,
+            NombreContacto = datos.Postulante.Nombre,
+            CorreoContacto = datos.Postulante.Correo,
+            TelefonoContacto = datos.Postulante.Telefono ?? "",
+            Proposito = "Invitacion",
+            FechaExpiracion = DateTime.UtcNow.Add(VigenciaToken),
+        };
+        db.PostulanteAccesoTokens.Add(token);
+        await db.SaveChangesAsync();
+
+        var link = $"{urlBase.TrimEnd('/')}/postulaciones/verificar/{token.Token}";
+        await correo.EnviarCorreoGenericoAsync(datos.Postulante.Correo, "Te invitamos a completar tu postulación - SOS Group",
+            $"<p>Hola {datos.Postulante.Nombre},</p><p>Para completar tu postulación y aceptar la política de datos personales, haz <a href='{link}'>clic aquí</a>.</p><p>Este link vence en 48 horas.</p>");
+    }
+
     public async Task<TokenInfo?> ObtenerInfoTokenAsync(string token)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
@@ -91,8 +129,12 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         var fila = await query.SingleOrDefaultAsync();
         if (fila is null) return null;
 
+        var rutConocido = fila.t.PostulanteId is not null
+            ? (await db.Postulantes.FindAsync(fila.t.PostulanteId.Value))?.RUT
+            : null;
+
         var valido = fila.t.UsadoEn is null && fila.t.FechaExpiracion > DateTime.UtcNow;
-        return new TokenInfo(fila.t.Token, fila.t.SolicitudId, fila.CargoNombre, fila.t.NombreContacto, fila.t.CorreoContacto, fila.t.TelefonoContacto, valido);
+        return new TokenInfo(fila.t.Token, fila.t.SolicitudId, fila.CargoNombre, fila.t.NombreContacto, fila.t.CorreoContacto, fila.t.TelefonoContacto, valido, rutConocido);
     }
 
     // Recién acá se crea/actualiza el Postulante (el RUT no se conoce antes de este paso) y se marca
@@ -109,7 +151,11 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         }
 
         var rut = NormalizarRut(datos.RUT);
-        var postulante = await db.Postulantes.SingleOrDefaultAsync(p => p.RUT == rut);
+        // Si el token ya viene con PostulanteId (invitación desde carga masiva), se resuelve por ahí
+        // y no por el RUT tipeado — evita crear un duplicado si el candidato lo escribe distinto.
+        var postulante = accesoToken.PostulanteId is not null
+            ? await db.Postulantes.FindAsync(accesoToken.PostulanteId.Value)
+            : await db.Postulantes.SingleOrDefaultAsync(p => p.RUT == rut);
         if (postulante is null)
         {
             postulante = new Postulante { RUT = rut, Nombre = accesoToken.NombreContacto, Correo = accesoToken.CorreoContacto, Telefono = accesoToken.TelefonoContacto };

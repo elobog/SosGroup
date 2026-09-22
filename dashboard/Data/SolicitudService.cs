@@ -5,7 +5,7 @@ using dashboard.Models.Reclutamiento;
 namespace dashboard.Data;
 
 // Mismo patrón que ClientesService/AccesoAppService: un DbContext propio por consulta.
-public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
+public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory, BlobStorageService blobStorage)
 {
     // Roles cuya visibilidad se acota a los clientes asignados (ClienteReclutador/ClienteSupervisor).
     // SuperAdmin/Admin/Supervisor Administrativo ven todo, sin filtro (BD_Dashboard.md § Identity — Acceso).
@@ -80,7 +80,11 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
     }
 
     public record PostulanteDocumentoResumen(int Id, string Tipo, DateTime FechaCarga);
-    public record PostulanteRecibido(int PostulanteSolicitudId, int PostulanteId, string Nombre, string RUT, string? Correo, string? Telefono, DateTime FechaIngreso, bool SeleccionadoPreseleccion, List<PostulanteDocumentoResumen> Documentos);
+    public record PostulanteRecibido(
+        int PostulanteSolicitudId, int PostulanteId, string Nombre, string RUT, string? Correo, string? Telefono,
+        string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia,
+        string Origen, int? Puntaje, bool Disponible,
+        DateTime FechaIngreso, bool SeleccionadoPreseleccion, List<PostulanteDocumentoResumen> Documentos);
 
     public static string EtiquetaDocumento(string tipo) => tipo switch
     {
@@ -102,7 +106,25 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
                                   where ps.SolicitudId == solicitudId
                                   join p in db.Postulantes on ps.PostulanteId equals p.Id
                                   orderby ps.FechaIngreso descending
-                                  select new { PostulanteSolicitudId = ps.Id, PostulanteId = p.Id, p.Nombre, p.RUT, p.Correo, p.Telefono, ps.FechaIngreso, ps.SeleccionadoPreseleccion })
+                                  select new
+                                  {
+                                      PostulanteSolicitudId = ps.Id,
+                                      PostulanteId = p.Id,
+                                      p.Nombre,
+                                      p.RUT,
+                                      p.Correo,
+                                      p.Telefono,
+                                      p.Sexo,
+                                      p.Edad,
+                                      p.Comuna,
+                                      p.AniosExperiencia,
+                                      p.RubroExperiencia,
+                                      ps.Origen,
+                                      ps.Puntaje,
+                                      Disponible = p.PoliticaAceptada,
+                                      ps.FechaIngreso,
+                                      ps.SeleccionadoPreseleccion,
+                                  })
             .ToListAsync();
 
         var postulanteIds = postulantes.Select(p => p.PostulanteId).ToList();
@@ -112,42 +134,239 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory)
             .ToListAsync();
 
         return postulantes.Select(p => new PostulanteRecibido(
-            p.PostulanteSolicitudId, p.PostulanteId, p.Nombre, p.RUT, p.Correo, p.Telefono, p.FechaIngreso, p.SeleccionadoPreseleccion,
+            p.PostulanteSolicitudId, p.PostulanteId, p.Nombre, p.RUT, p.Correo, p.Telefono,
+            p.Sexo, p.Edad, p.Comuna, p.AniosExperiencia, p.RubroExperiencia,
+            p.Origen, p.Puntaje, p.Disponible,
+            p.FechaIngreso, p.SeleccionadoPreseleccion,
             documentos.Where(d => d.PostulanteId == p.PostulanteId).Select(d => new PostulanteDocumentoResumen(d.Id, d.Tipo, d.FechaCarga)).ToList()
         )).ToList();
     }
 
-    // Activa postulantes hacia Preselección (Módulo 2) — sin flujo de precalificación todavía,
-    // el Reclutador elige directo. Acotado a solicitudId para que no se pueda activar de otra Solicitud.
-    public async Task ActivarPostulantesAsync(int solicitudId, List<int> postulanteSolicitudIds, string usuarioId)
+    public record ActivarResultado(int Activados, int Omitidos);
+
+    // Activa postulantes hacia Preselección (Módulo 2). Acotado a solicitudId para que no se pueda
+    // activar de otra Solicitud. Gate (v6 de la maqueta): solo se activa a quien ya completó el
+    // portal público (Postulante.PoliticaAceptada) — los de carga masiva sin invitar quedan omitidos.
+    public async Task<ActivarResultado> ActivarPostulantesAsync(int solicitudId, List<int> postulanteSolicitudIds, string usuarioId)
     {
-        if (postulanteSolicitudIds.Count == 0) return;
+        if (postulanteSolicitudIds.Count == 0) return new ActivarResultado(0, 0);
 
         await using var db = await dbFactory.CreateDbContextAsync();
 
-        var filas = await db.PostulanteSolicitudes
-            .Where(ps => ps.SolicitudId == solicitudId && postulanteSolicitudIds.Contains(ps.Id) && !ps.SeleccionadoPreseleccion)
+        var filas = await (from ps in db.PostulanteSolicitudes
+                            where ps.SolicitudId == solicitudId && postulanteSolicitudIds.Contains(ps.Id) && !ps.SeleccionadoPreseleccion
+                            join p in db.Postulantes on ps.PostulanteId equals p.Id
+                            select new { ps, p.PoliticaAceptada })
             .ToListAsync();
 
-        foreach (var fila in filas)
+        var activables = filas.Where(f => f.PoliticaAceptada).ToList();
+        var omitidos = filas.Count - activables.Count;
+
+        foreach (var f in activables)
         {
-            fila.SeleccionadoPreseleccion = true;
-            fila.EtapaPreseleccion = "Preseleccionado";
+            f.ps.SeleccionadoPreseleccion = true;
+            f.ps.EtapaPreseleccion = "Preseleccionado";
         }
 
-        if (filas.Count > 0)
+        if (activables.Count > 0)
         {
             db.LogsActividad.Add(new LogActividad
             {
                 UsuarioId = usuarioId,
-                Accion = $"Activó {filas.Count} postulante(s) para Preselección",
+                Accion = $"Activó {activables.Count} postulante(s) para Preselección",
+                Entidad = "Solicitud",
+                EntidadId = solicitudId,
+            });
+        }
+        if (omitidos > 0)
+        {
+            db.LogsActividad.Add(new LogActividad
+            {
+                UsuarioId = usuarioId,
+                Accion = $"{omitidos} postulante(s) omitido(s) — todavía no completan su Postulación (invitalos primero)",
                 Entidad = "Solicitud",
                 EntidadId = solicitudId,
             });
         }
 
         await db.SaveChangesAsync();
+        return new ActivarResultado(activables.Count, omitidos);
     }
+
+    public async Task<PrecalificacionConfig?> ObtenerConfigPrecalificacionAsync(int solicitudId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.PrecalificacionConfigs.SingleOrDefaultAsync(c => c.SolicitudId == solicitudId);
+    }
+
+    public async Task GuardarConfigPrecalificacionAsync(PrecalificacionConfig config)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var existente = await db.PrecalificacionConfigs.SingleOrDefaultAsync(c => c.SolicitudId == config.SolicitudId);
+        if (existente is null)
+        {
+            db.PrecalificacionConfigs.Add(new PrecalificacionConfig
+            {
+                SolicitudId = config.SolicitudId,
+                SexoPeso = config.SexoPeso,
+                SexoObjetivo = config.SexoObjetivo,
+                EdadPeso = config.EdadPeso,
+                EdadMin = config.EdadMin,
+                EdadMax = config.EdadMax,
+                ComunaPeso = config.ComunaPeso,
+                ComunaObjetivo = config.ComunaObjetivo,
+                ExperienciaPeso = config.ExperienciaPeso,
+                ExperienciaMinimo = config.ExperienciaMinimo,
+                RubroPeso = config.RubroPeso,
+                RubroObjetivo = config.RubroObjetivo,
+            });
+        }
+        else
+        {
+            existente.SexoPeso = config.SexoPeso;
+            existente.SexoObjetivo = config.SexoObjetivo;
+            existente.EdadPeso = config.EdadPeso;
+            existente.EdadMin = config.EdadMin;
+            existente.EdadMax = config.EdadMax;
+            existente.ComunaPeso = config.ComunaPeso;
+            existente.ComunaObjetivo = config.ComunaObjetivo;
+            existente.ExperienciaPeso = config.ExperienciaPeso;
+            existente.ExperienciaMinimo = config.ExperienciaMinimo;
+            existente.RubroPeso = config.RubroPeso;
+            existente.RubroObjetivo = config.RubroObjetivo;
+        }
+        await db.SaveChangesAsync();
+    }
+
+    // Fórmula portada 1:1 desde scorePostulante() de la maqueta (Artifact) — ver el plan de esta sesión.
+    internal static int CalcularPuntaje(Postulante p, PrecalificacionConfig cfg)
+    {
+        var sSexo = string.IsNullOrWhiteSpace(cfg.SexoObjetivo) ? 100 : (p.Sexo == cfg.SexoObjetivo ? 100 : 0);
+
+        var edad = p.Edad ?? 0;
+        int sEdad;
+        if (edad >= cfg.EdadMin && edad <= cfg.EdadMax)
+        {
+            sEdad = 100;
+        }
+        else
+        {
+            var distancia = edad < cfg.EdadMin ? cfg.EdadMin - edad : edad - cfg.EdadMax;
+            sEdad = Math.Max(0, 100 - Math.Min(distancia, 10) * 10);
+        }
+
+        var comunasObjetivo = (cfg.ComunaObjetivo ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => s.ToLowerInvariant())
+            .ToList();
+        var sComuna = comunasObjetivo.Count == 0 ? 100 : (comunasObjetivo.Contains((p.Comuna ?? "").ToLowerInvariant()) ? 100 : 0);
+
+        var sExperiencia = cfg.ExperienciaMinimo <= 0
+            ? 100
+            : Math.Min(100, (int)Math.Round((p.AniosExperiencia ?? 0) / (double)cfg.ExperienciaMinimo * 100));
+
+        var sRubro = string.IsNullOrWhiteSpace(cfg.RubroObjetivo)
+            ? 100
+            : ((p.RubroExperiencia ?? "").Contains(cfg.RubroObjetivo, StringComparison.OrdinalIgnoreCase) ? 100 : 0);
+
+        var total = (sSexo * cfg.SexoPeso + sEdad * cfg.EdadPeso + sComuna * cfg.ComunaPeso + sExperiencia * cfg.ExperienciaPeso + sRubro * cfg.RubroPeso) / 100.0;
+        return (int)Math.Round(total);
+    }
+
+    public async Task<int> CalcularPrecalificacionAsync(int solicitudId, string usuarioId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var config = await db.PrecalificacionConfigs.SingleOrDefaultAsync(c => c.SolicitudId == solicitudId);
+        if (config is null) return 0;
+
+        var registros = await (from ps in db.PostulanteSolicitudes
+                                where ps.SolicitudId == solicitudId
+                                join p in db.Postulantes on ps.PostulanteId equals p.Id
+                                select new { ps, p })
+            .ToListAsync();
+
+        foreach (var r in registros)
+        {
+            r.ps.Puntaje = CalcularPuntaje(r.p, config);
+        }
+
+        if (registros.Count > 0)
+        {
+            db.LogsActividad.Add(new LogActividad
+            {
+                UsuarioId = usuarioId,
+                Accion = $"Calculó precalificación de {registros.Count} postulante(s)",
+                Entidad = "Solicitud",
+                EntidadId = solicitudId,
+            });
+        }
+
+        await db.SaveChangesAsync();
+        return registros.Count;
+    }
+
+    public record CandidatoCargaMasivaInput(string Nombre, string RUT, string Correo, string? Telefono, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, byte[] CvBytes, string CvNombreArchivo);
+
+    // Carga masiva real de CVs (PDF, extracción previa por PostulanteIAService, revisada por el
+    // Reclutador antes de llegar acá). Origen="CargaMasiva" — PoliticaAceptada queda en false hasta
+    // que se invite y complete el portal público (ver PostulacionPublicaService.InvitarAsync).
+    public async Task<int> GuardarCandidatosCargaMasivaAsync(int solicitudId, List<CandidatoCargaMasivaInput> candidatos, string usuarioId)
+    {
+        if (candidatos.Count == 0) return 0;
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var guardados = 0;
+
+        foreach (var c in candidatos)
+        {
+            var rut = NormalizarRut(c.RUT);
+            if (string.IsNullOrWhiteSpace(rut)) continue;
+
+            var postulante = await db.Postulantes.SingleOrDefaultAsync(p => p.RUT == rut);
+            if (postulante is null)
+            {
+                postulante = new Postulante { RUT = rut, Nombre = c.Nombre };
+                db.Postulantes.Add(postulante);
+            }
+            if (string.IsNullOrWhiteSpace(postulante.Nombre)) postulante.Nombre = c.Nombre;
+            postulante.Correo ??= c.Correo;
+            postulante.Telefono ??= c.Telefono;
+            postulante.Sexo ??= c.Sexo;
+            postulante.Edad ??= c.Edad;
+            postulante.Comuna ??= c.Comuna;
+            postulante.AniosExperiencia ??= c.AniosExperiencia;
+            postulante.RubroExperiencia ??= c.RubroExperiencia;
+            await db.SaveChangesAsync();
+
+            var yaPostulado = await db.PostulanteSolicitudes.AnyAsync(ps => ps.PostulanteId == postulante.Id && ps.SolicitudId == solicitudId);
+            if (!yaPostulado)
+            {
+                db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulante.Id, SolicitudId = solicitudId, Origen = "CargaMasiva", FechaIngreso = DateTime.UtcNow });
+            }
+
+            var rutaBlob = await blobStorage.SubirDocumentoPostulanteAsync(postulante.Id, c.CvNombreArchivo, new MemoryStream(c.CvBytes));
+            db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = "CV", RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
+
+            guardados++;
+        }
+
+        if (guardados > 0)
+        {
+            db.LogsActividad.Add(new LogActividad
+            {
+                UsuarioId = usuarioId,
+                Accion = $"Cargó {guardados} candidato(s) vía CV en PDF (IA)",
+                Entidad = "Solicitud",
+                EntidadId = solicitudId,
+            });
+        }
+
+        await db.SaveChangesAsync();
+        return guardados;
+    }
+
+    private static string NormalizarRut(string rut) => rut.Trim().Replace(".", "").Replace(" ", "").ToUpperInvariant();
 
     public async Task<int> CrearAsync(Solicitud solicitud, SolicitudDetalle primeraRonda)
     {

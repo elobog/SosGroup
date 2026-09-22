@@ -6,13 +6,17 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Identity
 @using dashboard.Data
+@using dashboard.Models.Reclutamiento
 @using SolicitudModel = dashboard.Models.Reclutamiento.Solicitud
 
 @inject SolicitudService SolicitudService
 @inject PerfilCargoService PerfilCargoService
 @inject AccesoAppService AccesoService
+@inject PostulanteIAService PostulanteIAService
+@inject PostulacionPublicaService PostulacionPublicaService
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
@@ -58,6 +62,109 @@
 else if (solicitudActual is not null)
 {
     <div class="panel">
+        <div class="panel-head"><h3>Carga de CVs (PDF)</h3><span class="tag">Extracción por IA</span></div>
+        <p class="panel-text" style="padding:0 20px 14px; color:var(--ink-faint); font-size:12.5px;">Subí uno o más CVs en PDF — la IA extrae los datos, pero revisalos antes de guardar (nunca se guardan directo).</p>
+        <div style="padding:0 20px 16px;">
+            <div class="file-picker">
+                <label for="cvsInput" class="table-action" style="cursor:pointer;">Seleccionar CVs</label>
+                <InputFile id="cvsInput" OnChange="ProcesarCvsAsync" accept=".pdf" multiple disabled="@procesandoCvs" />
+                @if (procesandoCvs)
+                {
+                    <span class="file-picker-name">Procesando @cvsEnProceso...</span>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(errorCarga))
+            {
+                <p class="text-danger" style="margin-top:8px;">@errorCarga</p>
+            }
+        </div>
+
+        @if (pendientes.Count > 0)
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Archivo</th><th>Nombre</th><th>RUT</th><th>Correo</th><th>Teléfono</th><th>Sexo</th><th>Edad</th><th>Comuna</th><th>Años exp.</th><th>Rubro</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var c in pendientes)
+                        {
+                            <tr>
+                                <td class="wrap">@c.CvNombreArchivo</td>
+                                <td><input type="text" @bind="c.Nombre" style="width:140px;" /></td>
+                                <td><input type="text" @bind="c.RUT" style="width:110px;" /></td>
+                                <td><input type="text" @bind="c.Correo" style="width:160px;" /></td>
+                                <td><input type="text" @bind="c.Telefono" style="width:110px;" /></td>
+                                <td>
+                                    <select @bind="c.Sexo" style="width:100px;">
+                                        <option value="">—</option>
+                                        <option value="Femenino">Femenino</option>
+                                        <option value="Masculino">Masculino</option>
+                                    </select>
+                                </td>
+                                <td><input type="number" @bind="c.Edad" style="width:60px;" /></td>
+                                <td><input type="text" @bind="c.Comuna" style="width:120px;" /></td>
+                                <td><input type="number" @bind="c.AniosExperiencia" style="width:60px;" /></td>
+                                <td><input type="text" @bind="c.RubroExperiencia" style="width:140px;" /></td>
+                                <td><button class="link-btn" @onclick="() => pendientes.Remove(c)">Quitar</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="form-actions">
+                @if (!string.IsNullOrEmpty(mensajeCarga))
+                {
+                    <span>@mensajeCarga</span>
+                }
+                <button class="btn-primary" disabled="@(guardandoCarga || pendientes.Any(p => string.IsNullOrWhiteSpace(p.RUT) || string.IsNullOrWhiteSpace(p.Correo)))" @onclick="GuardarCargaMasivaAsync">Guardar candidatos</button>
+            </div>
+            @if (pendientes.Any(p => string.IsNullOrWhiteSpace(p.RUT) || string.IsNullOrWhiteSpace(p.Correo)))
+            {
+                <p class="text-danger" style="padding:0 20px 14px;">RUT y Correo son obligatorios para cada candidato (la IA no siempre los encuentra en el CV — completalos a mano).</p>
+            }
+        }
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <h3>Panel de precalificación</h3>
+            <span class="tag" style="color:@(SumaPesos == 100 ? "var(--ok)" : "var(--red)")">Suma de pesos: @SumaPesos / 100</span>
+        </div>
+        <div class="form-grid">
+            <div class="form-field"><label>Sexo — peso</label><input type="number" @bind="config.SexoPeso" min="0" max="100" /></div>
+            <div class="form-field">
+                <label>Sexo — objetivo</label>
+                <select @bind="config.SexoObjetivo">
+                    <option value="">Sin preferencia</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Masculino">Masculino</option>
+                </select>
+            </div>
+            <div class="form-field"><label>Edad — peso</label><input type="number" @bind="config.EdadPeso" min="0" max="100" /></div>
+            <div class="form-field">
+                <label>Edad — rango ideal</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="number" @bind="config.EdadMin" style="width:80px;" />
+                    <span style="color:var(--ink-faint);">a</span>
+                    <input type="number" @bind="config.EdadMax" style="width:80px;" />
+                </div>
+            </div>
+            <div class="form-field"><label>Comuna — peso</label><input type="number" @bind="config.ComunaPeso" min="0" max="100" /></div>
+            <div class="form-field"><label>Comuna(s) preferidas</label><input type="text" @bind="config.ComunaObjetivo" placeholder="Vacío = sin preferencia. Ej: Providencia, Ñuñoa" /></div>
+            <div class="form-field"><label>Años experiencia — peso</label><input type="number" @bind="config.ExperienciaPeso" min="0" max="100" /></div>
+            <div class="form-field"><label>Años experiencia — mínimo deseado</label><input type="number" @bind="config.ExperienciaMinimo" min="0" /></div>
+            <div class="form-field"><label>Rubro — peso</label><input type="number" @bind="config.RubroPeso" min="0" max="100" /></div>
+            <div class="form-field"><label>Rubro requerido</label><input type="text" @bind="config.RubroObjetivo" placeholder="Vacío = sin preferencia. Ej: Remuneraciones" /></div>
+        </div>
+        <div class="form-actions">
+            @if (!string.IsNullOrEmpty(mensajePrecal))
+            {
+                <span>@mensajePrecal</span>
+            }
+            <button class="btn-primary" style="width:auto;margin:0;" disabled="@(SumaPesos != 100)" @onclick="CalcularPrecalificacionAsync">Calcular precalificación</button>
+        </div>
+    </div>
+
+    <div class="panel">
         <div class="panel-head">
             <h3>Candidatos — @perfilNombre</h3>
             <span class="tag">@postulantes.Count</span>
@@ -67,27 +174,41 @@ else if (solicitudActual is not null)
                 <thead>
                     <tr>
                         <th><input type="checkbox" checked="@todosSeleccionados" @onchange="ToggleTodos" /></th>
-                        <th>Nombre</th>
+                        <th class="sortable" @onclick='() => Ordenar("Nombre")'>Nombre</th>
                         <th>RUT</th>
+                        <th class="sortable" @onclick='() => Ordenar("Sexo")'>Sexo</th>
+                        <th class="sortable" @onclick='() => Ordenar("Edad")'>Edad</th>
+                        <th class="sortable" @onclick='() => Ordenar("Comuna")'>Comuna</th>
+                        <th class="sortable" @onclick='() => Ordenar("Experiencia")'>Experiencia</th>
+                        <th class="sortable" @onclick='() => Ordenar("Rubro")'>Rubro</th>
+                        <th class="sortable" @onclick='() => Ordenar("Origen")'>Origen</th>
                         <th>Correo</th>
                         <th>Teléfono</th>
                         <th>Fecha</th>
                         <th>Documentos</th>
+                        <th class="sortable" @onclick='() => Ordenar("Puntaje")'>Puntaje</th>
+                        <th>Postulación</th>
                         <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var p in postulantes)
+                    @foreach (var p in PostulantesVista)
                     {
                         <tr>
                             <td>
                                 <input type="checkbox"
                                        checked="@(p.SeleccionadoPreseleccion || seleccionados.Contains(p.PostulanteSolicitudId))"
-                                       disabled="@p.SeleccionadoPreseleccion"
+                                       disabled="@(p.SeleccionadoPreseleccion || !p.Disponible)"
                                        @onchange="e => ToggleUno(p.PostulanteSolicitudId, (bool)e.Value!)" />
                             </td>
                             <td>@p.Nombre</td>
                             <td>@p.RUT</td>
+                            <td>@(p.Sexo ?? "—")</td>
+                            <td>@(p.Edad?.ToString() ?? "—")</td>
+                            <td>@(p.Comuna ?? "—")</td>
+                            <td>@(p.AniosExperiencia is null ? "—" : $"{p.AniosExperiencia} años")</td>
+                            <td>@(p.RubroExperiencia ?? "—")</td>
+                            <td>@if (p.Origen == "Directa") { <span class="pill ok">Directa</span> } else { <span class="pill pending">Carga masiva</span> }</td>
                             <td>@(p.Correo ?? "—")</td>
                             <td>@(p.Telefono ?? "—")</td>
                             <td>@p.FechaIngreso.ToString("dd-MM-yyyy")</td>
@@ -104,6 +225,17 @@ else if (solicitudActual is not null)
                                     }
                                 }
                             </td>
+                            <td>@(p.Puntaje is null ? "—" : $"{p.Puntaje}%")</td>
+                            <td>
+                                @if (p.Disponible)
+                                {
+                                    <span class="pill ok">Completa</span>
+                                }
+                                else
+                                {
+                                    <button class="row-action-btn" disabled="@(invitando.Contains(p.PostulanteSolicitudId) || string.IsNullOrWhiteSpace(p.Correo))" @onclick="() => InvitarAsync(p.PostulanteSolicitudId)">Invitar a completar</button>
+                                }
+                            </td>
                             <td>
                                 @if (p.SeleccionadoPreseleccion)
                                 {
@@ -118,7 +250,7 @@ else if (solicitudActual is not null)
                     }
                     @if (postulantes.Count == 0)
                     {
-                        <tr><td colspan="8" style="color:var(--ink-faint);">Sin postulaciones recibidas todavía por el portal público.</td></tr>
+                        <tr><td colspan="16" style="color:var(--ink-faint);">Sin postulaciones recibidas todavía por el portal público.</td></tr>
                     }
                 </tbody>
             </table>
@@ -146,9 +278,68 @@ else if (solicitudActual is not null)
     private string perfilNombre = string.Empty;
     private List<SolicitudService.PostulanteRecibido> postulantes = [];
     private HashSet<int> seleccionados = [];
+    private HashSet<int> invitando = [];
     private string? mensaje;
 
-    private bool todosSeleccionados => postulantes.Count > 0 && postulantes.All(p => p.SeleccionadoPreseleccion || seleccionados.Contains(p.PostulanteSolicitudId));
+    private string? sortBy;
+    private bool sortDesc;
+
+    private PrecalificacionConfig config = new();
+    private string? mensajePrecal;
+    private int SumaPesos => config.SexoPeso + config.EdadPeso + config.ComunaPeso + config.ExperienciaPeso + config.RubroPeso;
+
+    private sealed class CandidatoPendiente
+    {
+        public string Nombre { get; set; } = "";
+        public string RUT { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string? Telefono { get; set; }
+        public string? Sexo { get; set; }
+        public int? Edad { get; set; }
+        public string? Comuna { get; set; }
+        public int? AniosExperiencia { get; set; }
+        public string? RubroExperiencia { get; set; }
+        public byte[] CvBytes { get; set; } = [];
+        public string CvNombreArchivo { get; set; } = "";
+    }
+
+    private List<CandidatoPendiente> pendientes = [];
+    private bool procesandoCvs;
+    private string cvsEnProceso = "";
+    private string? errorCarga;
+    private string? mensajeCarga;
+    private bool guardandoCarga;
+
+    private bool todosSeleccionados => postulantes.Count > 0 && postulantes.All(p => p.SeleccionadoPreseleccion || !p.Disponible || seleccionados.Contains(p.PostulanteSolicitudId));
+
+    private IEnumerable<SolicitudService.PostulanteRecibido> PostulantesVista
+    {
+        get
+        {
+            IOrderedEnumerable<SolicitudService.PostulanteRecibido> Ordenado<TKey>(Func<SolicitudService.PostulanteRecibido, TKey> selector) =>
+                sortDesc ? postulantes.OrderByDescending(selector) : postulantes.OrderBy(selector);
+
+            IEnumerable<SolicitudService.PostulanteRecibido> resultado = sortBy switch
+            {
+                "Nombre" => Ordenado(p => p.Nombre),
+                "Sexo" => Ordenado(p => p.Sexo ?? ""),
+                "Edad" => Ordenado(p => p.Edad ?? -1),
+                "Comuna" => Ordenado(p => p.Comuna ?? ""),
+                "Experiencia" => Ordenado(p => p.AniosExperiencia ?? -1),
+                "Rubro" => Ordenado(p => p.RubroExperiencia ?? ""),
+                "Origen" => Ordenado(p => p.Origen),
+                "Puntaje" => Ordenado(p => p.Puntaje ?? -1),
+                _ => postulantes,
+            };
+            return resultado;
+        }
+    }
+
+    private void Ordenar(string campo)
+    {
+        if (sortBy == campo) sortDesc = !sortDesc;
+        else { sortBy = campo; sortDesc = false; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -184,6 +375,8 @@ else if (solicitudActual is not null)
         perfilNombre = await PerfilCargoService.ObtenerNombrePorVersionAsync(solicitudActual.PerfilCargoVersionId) ?? "—";
         postulantes = await SolicitudService.ListarPostulantesAsync(id);
         seleccionados.Clear();
+
+        config = await SolicitudService.ObtenerConfigPrecalificacionAsync(id) ?? new PrecalificacionConfig { SolicitudId = id };
     }
 
     // forceLoad: true — mismo motivo que AbrirSolicitud en Solicitud.razor.
@@ -201,7 +394,7 @@ else if (solicitudActual is not null)
         seleccionados.Clear();
         if (marcar)
         {
-            foreach (var p in postulantes.Where(p => !p.SeleccionadoPreseleccion))
+            foreach (var p in postulantes.Where(p => !p.SeleccionadoPreseleccion && p.Disponible))
             {
                 seleccionados.Add(p.PostulanteSolicitudId);
             }
@@ -211,9 +404,108 @@ else if (solicitudActual is not null)
     private async Task ActivarAsync()
     {
         if (SolicitudId is null) return;
-        var cantidad = seleccionados.Count;
-        await SolicitudService.ActivarPostulantesAsync(SolicitudId.Value, seleccionados.ToList(), usuarioId);
-        mensaje = $"{cantidad} postulante(s) activado(s).";
+        var resultado = await SolicitudService.ActivarPostulantesAsync(SolicitudId.Value, seleccionados.ToList(), usuarioId);
+        mensaje = resultado.Omitidos > 0
+            ? $"{resultado.Activados} activado(s), {resultado.Omitidos} omitido(s) (no disponible todavía)."
+            : $"{resultado.Activados} postulante(s) activado(s).";
         await CargarCandidatosAsync(SolicitudId.Value);
+    }
+
+    private async Task InvitarAsync(int postulanteSolicitudId)
+    {
+        if (SolicitudId is null) return;
+        invitando.Add(postulanteSolicitudId);
+        try
+        {
+            await PostulacionPublicaService.InvitarAsync(postulanteSolicitudId, NavigationManager.BaseUri);
+            mensaje = "Invitación enviada.";
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"No se pudo invitar: {ex.Message}";
+        }
+        finally
+        {
+            invitando.Remove(postulanteSolicitudId);
+        }
+    }
+
+    private async Task CalcularPrecalificacionAsync()
+    {
+        if (SolicitudId is null || SumaPesos != 100) return;
+        config.SolicitudId = SolicitudId.Value;
+        await SolicitudService.GuardarConfigPrecalificacionAsync(config);
+        var cantidad = await SolicitudService.CalcularPrecalificacionAsync(SolicitudId.Value, usuarioId);
+        mensajePrecal = $"Precalificación calculada para {cantidad} postulante(s).";
+        await CargarCandidatosAsync(SolicitudId.Value);
+    }
+
+    private async Task ProcesarCvsAsync(InputFileChangeEventArgs e)
+    {
+        if (solicitudActual is null) return;
+        errorCarga = null;
+        procesandoCvs = true;
+        try
+        {
+            foreach (var archivo in e.GetMultipleFiles(20))
+            {
+                cvsEnProceso = archivo.Name;
+                StateHasChanged();
+
+                using var memoria = new MemoryStream();
+                await using (var stream = archivo.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024))
+                {
+                    await stream.CopyToAsync(memoria);
+                }
+                var bytes = memoria.ToArray();
+
+                var texto = PdfTextExtractor.ExtraerTexto(bytes);
+                var extraido = await PostulanteIAService.ExtraerCvAsync(texto, solicitudActual.ClienteId, solicitudActual.Id, usuarioId);
+
+                pendientes.Add(new CandidatoPendiente
+                {
+                    Nombre = extraido.Nombre ?? "",
+                    RUT = extraido.RUT ?? "",
+                    Correo = extraido.Correo ?? "",
+                    Telefono = extraido.Telefono,
+                    Sexo = extraido.Sexo,
+                    Edad = extraido.Edad,
+                    Comuna = extraido.Comuna,
+                    AniosExperiencia = extraido.AniosExperiencia,
+                    RubroExperiencia = extraido.RubroExperiencia,
+                    CvBytes = bytes,
+                    CvNombreArchivo = archivo.Name,
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            errorCarga = $"No se pudo procesar uno de los CVs: {ex.Message}";
+        }
+        finally
+        {
+            procesandoCvs = false;
+        }
+    }
+
+    private async Task GuardarCargaMasivaAsync()
+    {
+        if (SolicitudId is null || pendientes.Count == 0) return;
+        guardandoCarga = true;
+        try
+        {
+            var input = pendientes.Select(p => new SolicitudService.CandidatoCargaMasivaInput(
+                p.Nombre, p.RUT, p.Correo, p.Telefono, p.Sexo, p.Edad, p.Comuna, p.AniosExperiencia, p.RubroExperiencia, p.CvBytes, p.CvNombreArchivo
+            )).ToList();
+
+            var cantidad = await SolicitudService.GuardarCandidatosCargaMasivaAsync(SolicitudId.Value, input, usuarioId);
+            mensajeCarga = $"{cantidad} candidato(s) guardado(s).";
+            pendientes.Clear();
+            await CargarCandidatosAsync(SolicitudId.Value);
+        }
+        finally
+        {
+            guardandoCarga = false;
+        }
     }
 }

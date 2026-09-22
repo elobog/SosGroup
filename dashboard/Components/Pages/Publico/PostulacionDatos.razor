@@ -24,7 +24,7 @@ else
             <DataAnnotationsValidator />
             <div class="form-field">
                 <label>RUT</label>
-                <InputText @bind-Value="form.RUT" placeholder="12.345.678-9" />
+                <InputText @bind-Value="form.RUT" placeholder="12.345.678-9" readonly="@(info.RutConocido is not null)" />
                 <ValidationMessage For="() => form.RUT" class="text-danger" />
             </div>
             <div class="form-field">
@@ -122,6 +122,7 @@ else
     {
         var resultado = await PostulacionPublicaService.ObtenerInfoTokenAsync(Token);
         info = resultado is { Valido: true } ? resultado : null;
+        if (info?.RutConocido is not null) form.RUT = info.RutConocido;
     }
 
     private async Task EnviarAsync()
