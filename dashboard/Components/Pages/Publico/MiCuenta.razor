@@ -1,0 +1,223 @@
+@page "/postulaciones/mi-cuenta/{Token}"
+@layout dashboard.Components.Layout.PublicoLayout
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using dashboard.Data
+@inject PostulacionPublicaService PostulacionPublicaService
+
+<PageTitle>Mi postulación | SOS Group</PageTitle>
+
+@if (info is null)
+{
+    <div class="pub-detail-panel">
+        <div class="pub-empty-state">
+            Este link ya no es válido — puede haber expirado (dura 10 minutos por seguridad).
+            <br /><a class="link-btn" href="/postulaciones/mi-cuenta">Solicitar uno nuevo</a>
+        </div>
+    </div>
+}
+else
+{
+    <h1>Hola, @info.Nombre</h1>
+    <p class="pub-intro">Revisa tus postulaciones y actualiza tus datos o documentos.</p>
+
+    <div class="pub-detail-panel" style="margin-bottom:20px;">
+        <div class="pub-detail-head"><h2 class="pub-detail-title" style="font-size:18px;">Mis postulaciones</h2></div>
+        <div class="pub-detail-body">
+            @if (info.Postulaciones.Count == 0)
+            {
+                <p class="pub-field-val" style="margin:0;">Aún no tienes postulaciones registradas.</p>
+            }
+            else
+            {
+                @foreach (var p in info.Postulaciones)
+                {
+                    <div style="padding:10px 0; border-bottom:1px solid var(--pub-line);">
+                        <p class="pub-job-title" style="margin:0 0 4px;">@p.CargoNombre</p>
+                        <p class="pub-job-meta" style="margin:0;">@p.ClienteRazonSocial — postulaste el @p.FechaIngreso.ToString("dd-MM-yyyy")</p>
+                        <p class="pub-job-meta" style="margin:2px 0 0;">Estado: @(p.EtapaEvaluacion ?? p.EtapaPreseleccion ?? "En revisión")</p>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="pub-detail-panel">
+        <div class="pub-detail-head"><h2 class="pub-detail-title" style="font-size:18px;">Mis datos y documentos</h2></div>
+        <div class="pub-detail-body">
+            @if (guardado)
+            {
+                <p class="pub-field-val" style="margin:0 0 16px;"><b>¡Guardado!</b> Tus datos se actualizaron correctamente.</p>
+            }
+
+            <EditForm Model="form" OnValidSubmit="GuardarAsync">
+                <div class="pub-form-field">
+                    <label>Sexo</label>
+                    <InputSelect @bind-Value="form.Sexo">
+                        <option value="">Prefiero no decir</option>
+                        <option value="Femenino">Femenino</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Otro">Otro</option>
+                    </InputSelect>
+                </div>
+                <div class="pub-form-field"><label>Edad</label><InputNumber @bind-Value="form.Edad" /></div>
+                <div class="pub-form-field"><label>Comuna</label><InputText @bind-Value="form.Comuna" /></div>
+                <div class="pub-form-field"><label>Años de experiencia</label><InputNumber @bind-Value="form.AniosExperiencia" /></div>
+                <div class="pub-form-field"><label>Rubro de experiencia</label><InputText @bind-Value="form.RubroExperiencia" /></div>
+
+                <p class="pub-field-lbl" style="margin-top:6px;">Documentos ya cargados</p>
+                <p class="pub-field-val">@(info.DocumentosCargados.Count > 0 ? string.Join(", ", info.DocumentosCargados.Select(EtiquetaDocumento)) : "Ninguno todavía")</p>
+
+                <p class="pub-field-lbl">Reemplazar o agregar un documento (PDF) — opcional</p>
+                <div class="pub-form-field">
+                    <label>Currículum</label>
+                    <div class="file-picker">
+                        <label class="btn-ghost" for="cvInput" style="cursor:pointer;">Elegir archivo</label>
+                        <InputFile id="cvInput" OnChange="@(e => cv = e.File)" accept=".pdf" />
+                        <span class="file-picker-name">@(cv?.Name ?? "Ningún archivo seleccionado")</span>
+                    </div>
+                </div>
+                <div class="pub-form-field">
+                    <label>Certificado de antecedentes</label>
+                    <div class="file-picker">
+                        <label class="btn-ghost" for="certificadoAntecedentesInput" style="cursor:pointer;">Elegir archivo</label>
+                        <InputFile id="certificadoAntecedentesInput" OnChange="@(e => certificadoAntecedentes = e.File)" accept=".pdf" />
+                        <span class="file-picker-name">@(certificadoAntecedentes?.Name ?? "Ningún archivo seleccionado")</span>
+                    </div>
+                </div>
+                <div class="pub-form-field">
+                    <label>Certificado de Isapre/Fonasa</label>
+                    <div class="file-picker">
+                        <label class="btn-ghost" for="certificadoIsapreFonasaInput" style="cursor:pointer;">Elegir archivo</label>
+                        <InputFile id="certificadoIsapreFonasaInput" OnChange="@(e => certificadoIsapreFonasa = e.File)" accept=".pdf" />
+                        <span class="file-picker-name">@(certificadoIsapreFonasa?.Name ?? "Ningún archivo seleccionado")</span>
+                    </div>
+                </div>
+                <div class="pub-form-field">
+                    <label>Certificado AFP</label>
+                    <div class="file-picker">
+                        <label class="btn-ghost" for="certificadoAfpInput" style="cursor:pointer;">Elegir archivo</label>
+                        <InputFile id="certificadoAfpInput" OnChange="@(e => certificadoAfp = e.File)" accept=".pdf" />
+                        <span class="file-picker-name">@(certificadoAfp?.Name ?? "Ningún archivo seleccionado")</span>
+                    </div>
+                </div>
+                <div class="pub-form-field">
+                    <label>Último finiquito</label>
+                    <div class="file-picker">
+                        <label class="btn-ghost" for="ultimoFiniquitoInput" style="cursor:pointer;">Elegir archivo</label>
+                        <InputFile id="ultimoFiniquitoInput" OnChange="@(e => ultimoFiniquito = e.File)" accept=".pdf" />
+                        <span class="file-picker-name">@(ultimoFiniquito?.Name ?? "Ningún archivo seleccionado")</span>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <p class="text-danger" style="margin:0 0 12px;">@error</p>
+                }
+                <button type="submit" class="pub-btn-primary" disabled="@guardando">Guardar cambios</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    private PostulacionPublicaService.MiCuentaInfo? info;
+    private FormModel form = new();
+    private IBrowserFile? cv;
+    private IBrowserFile? certificadoAntecedentes;
+    private IBrowserFile? certificadoIsapreFonasa;
+    private IBrowserFile? certificadoAfp;
+    private IBrowserFile? ultimoFiniquito;
+    private bool guardando;
+    private bool guardado;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        info = await PostulacionPublicaService.ObtenerCuentaAsync(Token);
+        if (info is not null)
+        {
+            form = new FormModel
+            {
+                Sexo = info.Sexo,
+                Edad = info.Edad,
+                Comuna = info.Comuna,
+                AniosExperiencia = info.AniosExperiencia,
+                RubroExperiencia = info.RubroExperiencia,
+            };
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        guardando = true;
+        error = null;
+        guardado = false;
+        try
+        {
+            var datos = new PostulacionPublicaService.MiCuentaDatosInput(form.Sexo, form.Edad, form.Comuna, form.AniosExperiencia, form.RubroExperiencia);
+
+            var documentos = new List<PostulacionPublicaService.DocumentoInput>();
+            await AgregarDocumentoAsync(documentos, "CV", cv);
+            await AgregarDocumentoAsync(documentos, "CertificadoAntecedentes", certificadoAntecedentes);
+            await AgregarDocumentoAsync(documentos, "CertificadoIsapreFonasa", certificadoIsapreFonasa);
+            await AgregarDocumentoAsync(documentos, "CertificadoAFP", certificadoAfp);
+            await AgregarDocumentoAsync(documentos, "UltimoFiniquito", ultimoFiniquito);
+
+            var ok = await PostulacionPublicaService.ActualizarCuentaAsync(Token, datos, documentos);
+            if (ok)
+            {
+                guardado = true;
+                cv = certificadoAntecedentes = certificadoIsapreFonasa = certificadoAfp = ultimoFiniquito = null;
+                info = await PostulacionPublicaService.ObtenerCuentaAsync(Token);
+            }
+            else
+            {
+                error = "Este link ya no es válido — puede haber expirado.";
+            }
+        }
+        catch (Exception)
+        {
+            error = "No pudimos guardar los cambios. Intenta nuevamente en unos minutos.";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private static async Task AgregarDocumentoAsync(List<PostulacionPublicaService.DocumentoInput> documentos, string tipo, IBrowserFile? archivo)
+    {
+        if (archivo is null) return;
+
+        var memoria = new MemoryStream();
+        await using (var stream = archivo.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024))
+        {
+            await stream.CopyToAsync(memoria);
+        }
+        memoria.Position = 0;
+        documentos.Add(new PostulacionPublicaService.DocumentoInput(tipo, archivo.Name, memoria));
+    }
+
+    private static string EtiquetaDocumento(string tipo) => tipo switch
+    {
+        "CV" => "Currículum",
+        "CertificadoAntecedentes" => "Certificado de antecedentes",
+        "CertificadoIsapreFonasa" => "Certificado Isapre/Fonasa",
+        "CertificadoAFP" => "Certificado AFP",
+        "UltimoFiniquito" => "Último finiquito",
+        _ => tipo,
+    };
+
+    private sealed class FormModel
+    {
+        public string? Sexo { get; set; }
+        public int? Edad { get; set; }
+        public string? Comuna { get; set; }
+        public int? AniosExperiencia { get; set; }
+        public string? RubroExperiencia { get; set; }
+    }
+}

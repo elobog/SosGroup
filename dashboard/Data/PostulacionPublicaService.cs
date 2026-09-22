@@ -10,6 +10,7 @@ namespace dashboard.Data;
 public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> dbFactory, CorreoSistemaService correo, BlobStorageService blobStorage)
 {
     private static readonly TimeSpan VigenciaToken = TimeSpan.FromHours(48);
+    private static readonly TimeSpan VigenciaTokenAccesoRetorno = TimeSpan.FromMinutes(10);
 
     public record SolicitudPublicaResumen(int Id, string CargoNombre, string ClienteRazonSocial, DateTime FechaInicioServicio, string? DireccionServicio);
 
@@ -20,6 +21,12 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
     public record PostulanteDatosInput(string RUT, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, string? EstadoCivil, string? Nacionalidad, bool? Discapacidad, decimal? RentaPretendida, string? DescripcionProfesional, string? Habilidades);
 
     public record DocumentoInput(string Tipo, string NombreArchivo, Stream Contenido);
+
+    public record MiPostulacionResumen(int SolicitudId, string CargoNombre, string ClienteRazonSocial, DateTime FechaIngreso, string? EtapaPreseleccion, string? EtapaEvaluacion);
+
+    public record MiCuentaInfo(string Token, string Nombre, string RUT, string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia, List<MiPostulacionResumen> Postulaciones, List<string> DocumentosCargados);
+
+    public record MiCuentaDatosInput(string? Sexo, int? Edad, string? Comuna, int? AniosExperiencia, string? RubroExperiencia);
 
     public async Task<List<SolicitudPublicaResumen>> ListarSolicitudesAbiertasAsync()
     {
@@ -134,7 +141,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
             : null;
 
         var valido = fila.t.UsadoEn is null && fila.t.FechaExpiracion > DateTime.UtcNow;
-        return new TokenInfo(fila.t.Token, fila.t.SolicitudId, fila.CargoNombre, fila.t.NombreContacto, fila.t.CorreoContacto, fila.t.TelefonoContacto, valido, rutConocido);
+        return new TokenInfo(fila.t.Token, fila.t.SolicitudId!.Value, fila.CargoNombre, fila.t.NombreContacto, fila.t.CorreoContacto, fila.t.TelefonoContacto, valido, rutConocido);
     }
 
     // Recién acá se crea/actualiza el Postulante (el RUT no se conoce antes de este paso) y se marca
@@ -188,7 +195,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         var yaPostulado = await db.PostulanteSolicitudes.AnyAsync(ps => ps.PostulanteId == postulante.Id && ps.SolicitudId == accesoToken.SolicitudId);
         if (!yaPostulado)
         {
-            db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulante.Id, SolicitudId = accesoToken.SolicitudId, Origen = "Directa", FechaIngreso = DateTime.UtcNow });
+            db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulante.Id, SolicitudId = accesoToken.SolicitudId!.Value, Origen = "Directa", FechaIngreso = DateTime.UtcNow });
         }
 
         accesoToken.PostulanteId = postulante.Id;
@@ -196,6 +203,94 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         await db.SaveChangesAsync();
 
         await tx.CommitAsync();
+        return true;
+    }
+
+    // "Ya postulé, quiero editar mis datos" — el candidato pide un link a su correo, no ingresa clave.
+    // Por seguridad la respuesta es siempre la misma exista o no el correo (no revela si está registrado).
+    public async Task SolicitarAccesoRetornoAsync(string correoDestino, string urlBase)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var postulante = await db.Postulantes.SingleOrDefaultAsync(p => p.Correo == correoDestino);
+        if (postulante is null) return;
+
+        var token = new PostulanteAccesoToken
+        {
+            Token = Guid.NewGuid().ToString("N"),
+            SolicitudId = null,
+            PostulanteId = postulante.Id,
+            NombreContacto = postulante.Nombre,
+            CorreoContacto = correoDestino,
+            TelefonoContacto = postulante.Telefono ?? "",
+            Proposito = "AccesoRetorno",
+            FechaExpiracion = DateTime.UtcNow.Add(VigenciaTokenAccesoRetorno),
+        };
+        db.PostulanteAccesoTokens.Add(token);
+        await db.SaveChangesAsync();
+
+        var link = $"{urlBase.TrimEnd('/')}/postulaciones/mi-cuenta/{token.Token}";
+        await correo.EnviarCorreoGenericoAsync(postulante.Correo!, "Accede a tu postulación - SOS Group",
+            $"<p>Hola {postulante.Nombre},</p><p>Haz <a href='{link}'>clic aquí</a> para acceder a tu postulación y revisar o actualizar tus datos.</p><p>Por seguridad, este link vence en 10 minutos.</p>");
+    }
+
+    // El token de AccesoRetorno actúa como una sesión corta (no se marca "usado" al primer clic) —
+    // el candidato puede navegar y guardar cambios varias veces mientras no venza.
+    public async Task<MiCuentaInfo?> ObtenerCuentaAsync(string token)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var accesoToken = await db.PostulanteAccesoTokens.SingleOrDefaultAsync(t => t.Token == token && t.Proposito == "AccesoRetorno");
+        if (accesoToken is null || accesoToken.PostulanteId is null || accesoToken.FechaExpiracion <= DateTime.UtcNow) return null;
+
+        var postulante = await db.Postulantes.FindAsync(accesoToken.PostulanteId.Value);
+        if (postulante is null) return null;
+
+        var postulaciones = await (from ps in db.PostulanteSolicitudes
+                                    where ps.PostulanteId == postulante.Id
+                                    join s in db.Solicitudes on ps.SolicitudId equals s.Id
+                                    join pv in db.PerfilCargoVersiones on s.PerfilCargoVersionId equals pv.Id
+                                    join pc in db.PerfilesCargo on pv.PerfilCargoId equals pc.Id
+                                    join c in db.Clientes on s.ClienteId equals c.Id
+                                    orderby ps.FechaIngreso descending
+                                    select new MiPostulacionResumen(s.Id, pc.Nombre, c.RazonSocial, ps.FechaIngreso, ps.EtapaPreseleccion, ps.EtapaEvaluacion))
+            .ToListAsync();
+
+        var documentos = await db.PostulanteDocumentos
+            .Where(d => d.PostulanteId == postulante.Id)
+            .Select(d => d.Tipo)
+            .Distinct()
+            .ToListAsync();
+
+        return new MiCuentaInfo(token, postulante.Nombre, postulante.RUT, postulante.Sexo, postulante.Edad, postulante.Comuna, postulante.AniosExperiencia, postulante.RubroExperiencia, postulaciones, documentos);
+    }
+
+    // A diferencia de CompletarDatosAsync (primera vez, no pisa datos existentes), acá el candidato está
+    // editando lo suyo — lo que envía reemplaza el valor anterior. Los documentos nuevos se agregan sin
+    // borrar los anteriores (mismo criterio que PerfilCargoDocumentoOriginal: se conserva el historial).
+    public async Task<bool> ActualizarCuentaAsync(string token, MiCuentaDatosInput datos, List<DocumentoInput> documentos)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var accesoToken = await db.PostulanteAccesoTokens.SingleOrDefaultAsync(t => t.Token == token && t.Proposito == "AccesoRetorno");
+        if (accesoToken is null || accesoToken.PostulanteId is null || accesoToken.FechaExpiracion <= DateTime.UtcNow) return false;
+
+        var postulante = await db.Postulantes.FindAsync(accesoToken.PostulanteId.Value);
+        if (postulante is null) return false;
+
+        postulante.Sexo = datos.Sexo;
+        postulante.Edad = datos.Edad;
+        postulante.Comuna = datos.Comuna;
+        postulante.AniosExperiencia = datos.AniosExperiencia;
+        postulante.RubroExperiencia = datos.RubroExperiencia;
+
+        foreach (var documento in documentos)
+        {
+            var rutaBlob = await blobStorage.SubirDocumentoPostulanteAsync(postulante.Id, documento.NombreArchivo, documento.Contenido);
+            db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = documento.Tipo, RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
+        }
+
+        await db.SaveChangesAsync();
         return true;
     }
 

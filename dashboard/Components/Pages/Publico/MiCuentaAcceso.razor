@@ -1,0 +1,59 @@
+@page "/postulaciones/mi-cuenta"
+@layout dashboard.Components.Layout.PublicoLayout
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using dashboard.Data
+@inject PostulacionPublicaService PostulacionPublicaService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Mi postulación | SOS Group</PageTitle>
+
+<h1>Accede a tu postulación</h1>
+<p class="pub-intro">Si ya postulaste antes, ingresa tu correo y te enviamos un link de acceso — no necesitas contraseña.</p>
+
+<div class="pub-detail-panel" style="max-width:480px;">
+    <div class="pub-detail-body">
+        @if (enviado)
+        {
+            <p class="pub-field-val" style="margin:0;">
+                Si el correo <b>@correoIngresado</b> está registrado, te enviamos un link de acceso.
+                Revisa tu bandeja de entrada (y spam) — por seguridad, el link vence en <b>10 minutos</b>.
+            </p>
+        }
+        else
+        {
+            <EditForm Model="form" OnValidSubmit="EnviarAsync">
+                <DataAnnotationsValidator />
+                <div class="pub-form-field">
+                    <label>Correo</label>
+                    <InputText @bind-Value="form.Correo" @bind-Value:event="oninput" placeholder="nombre@correo.cl" />
+                    <ValidationMessage For="() => form.Correo" class="text-danger" />
+                </div>
+                <button type="submit" class="pub-btn-primary" disabled="@enviando">Enviarme el link</button>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    private FormModel form = new();
+    private bool enviando;
+    private bool enviado;
+    private string correoIngresado = "";
+
+    private async Task EnviarAsync()
+    {
+        enviando = true;
+        correoIngresado = form.Correo;
+        await PostulacionPublicaService.SolicitarAccesoRetornoAsync(form.Correo, NavigationManager.BaseUri);
+        enviado = true;
+        enviando = false;
+    }
+
+    private sealed class FormModel
+    {
+        [Required(ErrorMessage = "Ingresa tu correo.")]
+        [RegularExpression(@"^[^\s@]+@[^\s@]+\.[^\s@]+$", ErrorMessage = "Ingresa un correo válido (ej. nombre@correo.cl).")]
+        public string Correo { get; set; } = "";
+    }
+}

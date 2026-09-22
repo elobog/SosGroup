@@ -8,7 +8,7 @@ public class PostulanteAccesoToken
 {
     public int Id { get; set; }
     public string Token { get; set; } = string.Empty;
-    public int SolicitudId { get; set; }
+    public int? SolicitudId { get; set; } // null para AccesoRetorno — no está atado a una postulación puntual
     public string NombreContacto { get; set; } = string.Empty;
     public string CorreoContacto { get; set; } = string.Empty;
     public string TelefonoContacto { get; set; } = string.Empty;
