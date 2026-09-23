@@ -5,16 +5,13 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using dashboard.Data
 @inject PostulacionPublicaService PostulacionPublicaService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Completar postulación | SOS Group</PageTitle>
 
 @if (info is null)
 {
     <div class="panel"><div style="padding:20px;">Este link ya no es válido — puede haber expirado o haberse usado antes. <a class="link-btn" href="/postulaciones" data-enhance-nav="false">Volver a búsquedas abiertas</a>.</div></div>
-}
-else if (enviado)
-{
-    <div class="panel"><div style="padding:20px;"><p><b>¡Postulación recibida!</b> Gracias @info.NombreContacto, quedaste postulado a <b>@info.CargoNombre</b>. El equipo de SOS Group se pondrá en contacto contigo si avanzas en el proceso.</p></div></div>
 }
 else
 {
@@ -124,7 +121,6 @@ else
     private IBrowserFile? certificadoAfp;
     private IBrowserFile? ultimoFiniquito;
     private bool enviando;
-    private bool enviado;
     private bool guardado;
     private string? error;
 
@@ -167,14 +163,17 @@ else
             await AgregarDocumentoAsync(documentos, "CertificadoAFP", certificadoAfp);
             await AgregarDocumentoAsync(documentos, "UltimoFiniquito", ultimoFiniquito);
 
-            var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, documentos, finalizarPostulacion);
-            if (!ok)
+            var postulanteId = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, documentos, finalizarPostulacion);
+            if (postulanteId is null)
             {
                 error = "Este link ya no es válido.";
             }
             else if (finalizarPostulacion)
             {
-                enviado = true;
+                // Ya está inscrito como postulante — de acá en más entra directo a "Mi cuenta", donde
+                // ve todas sus postulaciones y su estado, y puede completar lo que le falte.
+                var tokenMiCuenta = await PostulacionPublicaService.GenerarAccesoDirectoAsync(postulanteId.Value);
+                NavigationManager.NavigateTo($"/postulaciones/mi-cuenta/{tokenMiCuenta}", forceLoad: true);
             }
             else
             {

@@ -170,7 +170,8 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
     // finalizarPostulacion=false ("Guardar") deja el token sin usar para que el candidato pueda volver
     // a este mismo link y seguir completando — los documentos no son requisito ni para guardar ni
     // para postular, solo para poder activarlo después en Preselección (ver SolicitudService.Disponible).
-    public async Task<bool> CompletarDatosAsync(string token, PostulanteDatosInput datos, List<DocumentoInput> documentos, bool finalizarPostulacion = true)
+    // Devuelve el Id del Postulante si el token era válido, o null si no (expirado/usado/inexistente).
+    public async Task<int?> CompletarDatosAsync(string token, PostulanteDatosInput datos, List<DocumentoInput> documentos, bool finalizarPostulacion = true)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -178,7 +179,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         var accesoToken = await db.PostulanteAccesoTokens.SingleOrDefaultAsync(t => t.Token == token);
         if (accesoToken is null || accesoToken.UsadoEn is not null || accesoToken.FechaExpiracion <= DateTime.UtcNow)
         {
-            return false;
+            return null;
         }
 
         var rut = NormalizarRut(datos.RUT);
@@ -230,7 +231,7 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         await db.SaveChangesAsync();
 
         await tx.CommitAsync();
-        return true;
+        return postulante.Id;
     }
 
     // "Ya postulé, quiero editar mis datos" — el candidato pide un link a su correo, no ingresa clave.
@@ -245,7 +246,17 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         await EnviarLinkAccesoRetornoAsync(db, postulante, urlBase);
     }
 
-    private async Task EnviarLinkAccesoRetornoAsync(ApplicationDbContext db, Postulante postulante, string urlBase)
+    // El postulante ya está en la pantalla (recién postuló o guardó sus datos) — no hace falta
+    // mandarle otro correo, se le arma el token y se le manda directo a Mi Cuenta.
+    public async Task<string> GenerarAccesoDirectoAsync(int postulanteId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var postulante = await db.Postulantes.FindAsync(postulanteId)
+            ?? throw new InvalidOperationException("No se encontró el postulante.");
+        return await CrearTokenAccesoRetornoAsync(db, postulante);
+    }
+
+    private static async Task<string> CrearTokenAccesoRetornoAsync(ApplicationDbContext db, Postulante postulante)
     {
         var token = new PostulanteAccesoToken
         {
@@ -260,8 +271,14 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         };
         db.PostulanteAccesoTokens.Add(token);
         await db.SaveChangesAsync();
+        return token.Token;
+    }
 
-        var link = $"{urlBase.TrimEnd('/')}/postulaciones/mi-cuenta/{token.Token}";
+    private async Task EnviarLinkAccesoRetornoAsync(ApplicationDbContext db, Postulante postulante, string urlBase)
+    {
+        var token = await CrearTokenAccesoRetornoAsync(db, postulante);
+
+        var link = $"{urlBase.TrimEnd('/')}/postulaciones/mi-cuenta/{token}";
         await correo.EnviarCorreoGenericoAsync(postulante.Correo!, "Accede a tu postulación - SOS Group",
             $"<p>Hola {postulante.Nombre},</p><p>Haz <a href='{link}'>clic aquí</a> para acceder a tu postulación y revisar o actualizar tus datos.</p><p>Por seguridad, este link vence en 10 minutos.</p>");
     }
