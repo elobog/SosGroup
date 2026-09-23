@@ -69,6 +69,25 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         var solicitud = await db.Solicitudes.SingleOrDefaultAsync(s => s.Id == solicitudId && s.Estado == "Activa")
             ?? throw new InvalidOperationException("La Solicitud no existe o ya no está activa.");
 
+        // Si correo y teléfono coinciden con un postulante que ya completó su registro antes (RUT y
+        // documentos ya están), no tiene sentido hacerlo pasar de nuevo por "verificar + completar
+        // datos" — se le registra la postulación directo y se le manda el acceso a Mi Cuenta.
+        var postulanteExistente = await db.Postulantes
+            .SingleOrDefaultAsync(p => p.Correo == correoDestino && p.Telefono == telefono && p.PoliticaAceptada);
+        if (postulanteExistente is not null)
+        {
+            var yaPostulado = await db.PostulanteSolicitudes
+                .AnyAsync(ps => ps.PostulanteId == postulanteExistente.Id && ps.SolicitudId == solicitudId);
+            if (!yaPostulado)
+            {
+                db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulanteExistente.Id, SolicitudId = solicitudId, Origen = "Directa", FechaIngreso = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }
+
+            await EnviarLinkAccesoRetornoAsync(db, postulanteExistente, urlBase);
+            return;
+        }
+
         var token = new PostulanteAccesoToken
         {
             Token = Guid.NewGuid().ToString("N"),
@@ -218,13 +237,18 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         var postulante = await db.Postulantes.SingleOrDefaultAsync(p => p.Correo == correoDestino);
         if (postulante is null) return;
 
+        await EnviarLinkAccesoRetornoAsync(db, postulante, urlBase);
+    }
+
+    private async Task EnviarLinkAccesoRetornoAsync(ApplicationDbContext db, Postulante postulante, string urlBase)
+    {
         var token = new PostulanteAccesoToken
         {
             Token = Guid.NewGuid().ToString("N"),
             SolicitudId = null,
             PostulanteId = postulante.Id,
             NombreContacto = postulante.Nombre,
-            CorreoContacto = correoDestino,
+            CorreoContacto = postulante.Correo ?? "",
             TelefonoContacto = postulante.Telefono ?? "",
             Proposito = "AccesoRetorno",
             FechaExpiracion = DateTime.UtcNow.Add(VigenciaTokenAccesoRetorno),
