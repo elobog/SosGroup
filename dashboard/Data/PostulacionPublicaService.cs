@@ -166,9 +166,11 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
         return new TokenInfo(fila.t.Token, fila.t.SolicitudId!.Value, fila.CargoNombre, fila.t.NombreContacto, fila.t.CorreoContacto, fila.t.TelefonoContacto, valido, rutConocido);
     }
 
-    // Recién acá se crea/actualiza el Postulante (el RUT no se conoce antes de este paso) y se marca
-    // el token como usado — "aceptar la política" y "completar datos" son una sola transacción.
-    public async Task<bool> CompletarDatosAsync(string token, PostulanteDatosInput datos, List<DocumentoInput> documentos)
+    // Recién acá se crea/actualiza el Postulante (el RUT no se conoce antes de este paso).
+    // finalizarPostulacion=false ("Guardar") deja el token sin usar para que el candidato pueda volver
+    // a este mismo link y seguir completando — los documentos no son requisito ni para guardar ni
+    // para postular, solo para poder activarlo después en Preselección (ver SolicitudService.Disponible).
+    public async Task<bool> CompletarDatosAsync(string token, PostulanteDatosInput datos, List<DocumentoInput> documentos, bool finalizarPostulacion = true)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -214,14 +216,17 @@ public class PostulacionPublicaService(IDbContextFactory<ApplicationDbContext> d
             db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = documento.Tipo, RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
         }
 
-        var yaPostulado = await db.PostulanteSolicitudes.AnyAsync(ps => ps.PostulanteId == postulante.Id && ps.SolicitudId == accesoToken.SolicitudId);
-        if (!yaPostulado)
+        if (finalizarPostulacion)
         {
-            db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulante.Id, SolicitudId = accesoToken.SolicitudId!.Value, Origen = "Directa", FechaIngreso = DateTime.UtcNow });
+            var yaPostulado = await db.PostulanteSolicitudes.AnyAsync(ps => ps.PostulanteId == postulante.Id && ps.SolicitudId == accesoToken.SolicitudId);
+            if (!yaPostulado)
+            {
+                db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulante.Id, SolicitudId = accesoToken.SolicitudId!.Value, Origen = "Directa", FechaIngreso = DateTime.UtcNow });
+            }
+            accesoToken.UsadoEn = DateTime.UtcNow;
         }
 
         accesoToken.PostulanteId = postulante.Id;
-        accesoToken.UsadoEn = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         await tx.CommitAsync();

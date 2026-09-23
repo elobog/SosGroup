@@ -79,6 +79,10 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory,
         return await db.SolicitudDetalles.Where(d => d.SolicitudId == solicitudId).OrderBy(d => d.FechaSolicitud).ToListAsync();
     }
 
+    // Documentos que deben estar completos antes de activar al postulante para Preselección — no son
+    // requisito para postular (ver PostulacionPublicaService.CompletarDatosAsync), solo para avanzar.
+    private static readonly string[] DocumentosObligatorios = ["CV", "CertificadoAntecedentes", "CertificadoIsapreFonasa", "CertificadoAFP"];
+
     public record PostulanteDocumentoResumen(int Id, string Tipo, DateTime FechaCarga);
     public record PostulanteRecibido(
         int PostulanteSolicitudId, int PostulanteId, string Nombre, string RUT, string? Correo, string? Telefono,
@@ -121,7 +125,7 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory,
                                       p.RubroExperiencia,
                                       ps.Origen,
                                       ps.Puntaje,
-                                      Disponible = p.PoliticaAceptada,
+                                      p.PoliticaAceptada,
                                       ps.FechaIngreso,
                                       ps.SeleccionadoPreseleccion,
                                   })
@@ -133,13 +137,18 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory,
             .OrderBy(d => d.FechaCarga)
             .ToListAsync();
 
-        return postulantes.Select(p => new PostulanteRecibido(
-            p.PostulanteSolicitudId, p.PostulanteId, p.Nombre, p.RUT, p.Correo, p.Telefono,
-            p.Sexo, p.Edad, p.Comuna, p.AniosExperiencia, p.RubroExperiencia,
-            p.Origen, p.Puntaje, p.Disponible,
-            p.FechaIngreso, p.SeleccionadoPreseleccion,
-            documentos.Where(d => d.PostulanteId == p.PostulanteId).Select(d => new PostulanteDocumentoResumen(d.Id, d.Tipo, d.FechaCarga)).ToList()
-        )).ToList();
+        return postulantes.Select(p =>
+        {
+            var tiposCargados = documentos.Where(d => d.PostulanteId == p.PostulanteId).Select(d => d.Tipo).ToHashSet();
+            var disponible = p.PoliticaAceptada && DocumentosObligatorios.All(tiposCargados.Contains);
+            return new PostulanteRecibido(
+                p.PostulanteSolicitudId, p.PostulanteId, p.Nombre, p.RUT, p.Correo, p.Telefono,
+                p.Sexo, p.Edad, p.Comuna, p.AniosExperiencia, p.RubroExperiencia,
+                p.Origen, p.Puntaje, disponible,
+                p.FechaIngreso, p.SeleccionadoPreseleccion,
+                documentos.Where(d => d.PostulanteId == p.PostulanteId).Select(d => new PostulanteDocumentoResumen(d.Id, d.Tipo, d.FechaCarga)).ToList()
+            );
+        }).ToList();
     }
 
     public record ActivarResultado(int Activados, int Omitidos);

@@ -20,7 +20,15 @@ else
 {
     <div class="panel">
         <div class="panel-head"><h3>Completa tus datos</h3><span class="tag">@info.CargoNombre</span></div>
-        <EditForm Model="form" FormName="postulacion-datos" OnValidSubmit="EnviarAsync" class="form-grid">
+        <p class="panel-text" style="padding:0 20px 14px; color:var(--ink-faint); font-size:12.5px;">
+            Los documentos no son obligatorios para postular — puedes agregarlos ahora o más adelante,
+            pero se necesitan completos antes de avanzar a la siguiente etapa del proceso.
+        </p>
+        @if (guardado)
+        {
+            <p class="panel-text" style="padding:0 20px 14px; color:var(--ok);"><b>Datos guardados.</b> Puedes seguir completando cuando quieras — este link sigue disponible.</p>
+        }
+        <EditForm Model="form" FormName="postulacion-datos" OnValidSubmit="PostularAsync" class="form-grid">
             <DataAnnotationsValidator />
             <div class="form-field">
                 <label>RUT</label>
@@ -97,7 +105,8 @@ else
                 {
                     <span class="text-danger">@error</span>
                 }
-                <button type="submit" class="btn-primary" disabled="@enviando">Enviar postulación</button>
+                <button type="button" class="btn-ghost" disabled="@enviando" @onclick="GuardarAsync">Guardar</button>
+                <button type="submit" class="btn-primary" disabled="@enviando">Postular</button>
             </div>
         </EditForm>
     </div>
@@ -116,6 +125,7 @@ else
     private IBrowserFile? ultimoFiniquito;
     private bool enviando;
     private bool enviado;
+    private bool guardado;
     private string? error;
 
     protected override async Task OnParametersSetAsync()
@@ -125,21 +135,27 @@ else
         if (info?.RutConocido is not null) form.RUT = info.RutConocido;
     }
 
-    private async Task EnviarAsync()
+    // "Guardar" no exige RUT válido (bypassa la validación del EditForm a propósito, ver el botón
+    // type="button") — solo lo necesita para saber a quién guardarle los datos.
+    private async Task GuardarAsync()
     {
-        var faltantes = new List<string>();
-        if (cv is null) faltantes.Add("Currículum");
-        if (certificadoAntecedentes is null) faltantes.Add("Certificado de antecedentes");
-        if (certificadoIsapreFonasa is null) faltantes.Add("Certificado de Isapre/Fonasa");
-        if (certificadoAfp is null) faltantes.Add("Certificado AFP");
-        if (faltantes.Count > 0)
+        if (string.IsNullOrWhiteSpace(form.RUT))
         {
-            error = $"Faltan documentos obligatorios: {string.Join(", ", faltantes)}.";
+            error = "Ingresa al menos tu RUT para guardar.";
             return;
         }
+        await GuardarDatosAsync(finalizarPostulacion: false);
+    }
 
+    // Los documentos nunca son requisito acá — solo se necesitan completos más adelante, para activar
+    // al postulante en Preselección (ver SolicitudService.Disponible).
+    private Task PostularAsync() => GuardarDatosAsync(finalizarPostulacion: true);
+
+    private async Task GuardarDatosAsync(bool finalizarPostulacion)
+    {
         enviando = true;
         error = null;
+        guardado = false;
         try
         {
             var datos = new PostulacionPublicaService.PostulanteDatosInput(form.RUT, string.IsNullOrWhiteSpace(form.Sexo) ? null : form.Sexo, form.Edad, form.Comuna, form.AniosExperiencia, form.RubroExperiencia, null, null, null, null, null, null);
@@ -151,9 +167,20 @@ else
             await AgregarDocumentoAsync(documentos, "CertificadoAFP", certificadoAfp);
             await AgregarDocumentoAsync(documentos, "UltimoFiniquito", ultimoFiniquito);
 
-            var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, documentos);
-            enviado = ok;
-            if (!ok) error = "Este link ya no es válido.";
+            var ok = await PostulacionPublicaService.CompletarDatosAsync(Token, datos, documentos, finalizarPostulacion);
+            if (!ok)
+            {
+                error = "Este link ya no es válido.";
+            }
+            else if (finalizarPostulacion)
+            {
+                enviado = true;
+            }
+            else
+            {
+                guardado = true;
+                cv = certificadoAntecedentes = certificadoIsapreFonasa = certificadoAfp = ultimoFiniquito = null;
+            }
         }
         catch (Exception)
         {
