@@ -344,10 +344,15 @@ input[type=checkbox]:disabled{cursor:not-allowed; opacity:.3;}
 
 .pub-detail-panel{background:var(--pub-surface); border:1px solid var(--pub-line); border-radius:14px; overflow:hidden; position:sticky; top:20px;}
 .pub-detail-head{padding:26px 28px 20px; border-bottom:1px solid var(--pub-line);}
-.pub-detail-head-row{display:flex; align-items:flex-start; justify-content:space-between; gap:16px;}
 .pub-detail-title{font-size:22px; font-weight:700; margin:0 0 6px; color:var(--pub-ink); line-height:1.25;}
 .pub-detail-sub{font-size:14px; color:var(--pub-ink-soft); margin:0;}
 .pub-detail-body{padding:22px 28px 28px;}
+
+/* Tarjeta de postulación — arriba del todo en el panel de detalle, para que "cómo postulo" no
+   dependa de hacer scroll hasta el final de la descripción del cargo. */
+.pub-apply-card{background:#fff8f8; border-bottom:1px solid var(--pub-line); padding:20px 28px;}
+.pub-apply-fields{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
+.pub-apply-card .pub-form-field{margin-bottom:0;}
 .pub-detail-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; margin-bottom:8px;}
 .pub-field-lbl{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--pub-ink-faint); font-weight:600; margin-bottom:4px;}
 .pub-field-val{font-size:14px; color:var(--pub-ink); margin:0 0 18px; line-height:1.55;}

@@ -10,22 +10,52 @@
 else
 {
     <div class="pub-detail-panel">
-        <div class="pub-detail-head pub-detail-head-row">
-            <div>
-                <h2 class="pub-detail-title">@detalle.CargoNombre</h2>
-                <p class="pub-detail-sub">
-                    @detalle.ClienteRazonSocial
-                    @if (!string.IsNullOrWhiteSpace(detalle.DireccionServicio))
-                    {
-                        @: — @detalle.DireccionServicio
-                    }
-                </p>
-            </div>
-            @if (!enviado)
+        <div class="pub-detail-head">
+            <h2 class="pub-detail-title">@detalle.CargoNombre</h2>
+            <p class="pub-detail-sub">
+                @detalle.ClienteRazonSocial
+                @if (!string.IsNullOrWhiteSpace(detalle.DireccionServicio))
+                {
+                    @: — @detalle.DireccionServicio
+                }
+            </p>
+        </div>
+
+        <div class="pub-apply-card">
+            @if (enviado)
             {
-                <a href="#pub-form-@SolicitudId" class="pub-btn-primary pub-btn-sm">Postularme</a>
+                <p class="pub-field-val" style="margin:0;"><b>¡Listo!</b> Te enviamos un correo a <b>@form.Correo</b> para confirmar tu postulación. Revisa tu bandeja de entrada (y spam) y sigue el link para continuar.</p>
+            }
+            else
+            {
+                <EditForm id="@($"pub-form-{SolicitudId}")" FormName="@($"solicitud-{SolicitudId}")" Model="form" OnValidSubmit="EnviarAsync">
+                    <DataAnnotationsValidator />
+                    <div class="pub-apply-fields">
+                        <div class="pub-form-field">
+                            <label>Nombre completo</label>
+                            <InputText @bind-Value="form.Nombre" />
+                            <ValidationMessage For="() => form.Nombre" class="text-danger" />
+                        </div>
+                        <div class="pub-form-field">
+                            <label>Correo</label>
+                            <input type="text" value="@form.Correo" @oninput="@(e => form.Correo = e.Value?.ToString() ?? string.Empty)" placeholder="nombre@correo.cl" />
+                            <ValidationMessage For="() => form.Correo" class="text-danger" />
+                        </div>
+                        <div class="pub-form-field">
+                            <label>Teléfono</label>
+                            <input type="text" value="@form.Telefono" @oninput="@(e => form.Telefono = e.Value?.ToString() ?? string.Empty)" placeholder="+56 9 1234 5678" />
+                            <ValidationMessage For="() => form.Telefono" class="text-danger" />
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(error))
+                    {
+                        <p class="text-danger" style="margin:8px 0 0;">@error</p>
+                    }
+                    <button type="submit" class="pub-btn-primary" style="margin-top:12px;" disabled="@enviando">Postularme</button>
+                </EditForm>
             }
         </div>
+
         <div class="pub-detail-body">
             <div class="pub-detail-grid">
                 <div><span class="pub-field-lbl">Fecha de inicio</span><span class="pub-field-val" style="margin:0;">@detalle.FechaInicioServicio.ToString("dd-MM-yyyy")</span></div>
@@ -63,39 +93,6 @@ else
             {
                 <span class="pub-field-lbl">Condiciones especiales</span>
                 <p class="pub-field-val">@detalle.CondicionesEspeciales</p>
-            }
-
-            <hr style="border:0; border-top:1px solid var(--pub-line); margin:20px 0 24px;" />
-
-            @if (enviado)
-            {
-                <p class="pub-field-val" style="margin:0;"><b>¡Listo!</b> Te enviamos un correo a <b>@form.Correo</b> para confirmar tu postulación. Revisa tu bandeja de entrada (y spam) y sigue el link para continuar.</p>
-            }
-            else
-            {
-                <EditForm id="@($"pub-form-{SolicitudId}")" Model="form" OnValidSubmit="EnviarAsync">
-                    <DataAnnotationsValidator />
-                    <div class="pub-form-field">
-                        <label>Nombre completo</label>
-                        <InputText @bind-Value="form.Nombre" />
-                        <ValidationMessage For="() => form.Nombre" class="text-danger" />
-                    </div>
-                    <div class="pub-form-field">
-                        <label>Correo</label>
-                        <InputText @bind-Value="form.Correo" @bind-Value:event="oninput" placeholder="nombre@correo.cl" />
-                        <ValidationMessage For="() => form.Correo" class="text-danger" />
-                    </div>
-                    <div class="pub-form-field">
-                        <label>Teléfono</label>
-                        <InputText @bind-Value="form.Telefono" @bind-Value:event="oninput" placeholder="+56 9 1234 5678" />
-                        <ValidationMessage For="() => form.Telefono" class="text-danger" />
-                    </div>
-                    @if (!string.IsNullOrEmpty(error))
-                    {
-                        <p class="text-danger" style="margin:0 0 12px;">@error</p>
-                    }
-                    <button type="submit" class="pub-btn-primary" disabled="@enviando">Postularme</button>
-                </EditForm>
             }
         </div>
     </div>
