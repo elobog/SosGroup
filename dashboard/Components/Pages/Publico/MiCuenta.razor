@@ -12,7 +12,7 @@
     <div class="pub-detail-panel">
         <div class="pub-empty-state">
             Este link ya no es válido — puede haber expirado (dura 10 minutos por seguridad).
-            <br /><a class="link-btn" href="/postulaciones/mi-cuenta">Solicitar uno nuevo</a>
+            <br /><a class="link-btn" href="/postulaciones/mi-cuenta" data-enhance-nav="false">Solicitar uno nuevo</a>
         </div>
     </div>
 }
@@ -50,7 +50,7 @@ else
                 <p class="pub-field-val" style="margin:0 0 16px;"><b>¡Guardado!</b> Tus datos se actualizaron correctamente.</p>
             }
 
-            <EditForm Model="form" OnValidSubmit="GuardarAsync">
+            <EditForm Model="form" FormName="mi-cuenta-datos" OnValidSubmit="GuardarAsync">
                 <div class="pub-form-field">
                     <label>Sexo</label>
                     <InputSelect @bind-Value="form.Sexo">

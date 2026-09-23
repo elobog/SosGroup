@@ -22,11 +22,11 @@
         }
         else
         {
-            <EditForm Model="form" OnValidSubmit="EnviarAsync">
+            <EditForm Model="form" FormName="mi-cuenta-acceso" OnValidSubmit="EnviarAsync">
                 <DataAnnotationsValidator />
                 <div class="pub-form-field">
                     <label>Correo</label>
-                    <InputText @bind-Value="form.Correo" @bind-Value:event="oninput" placeholder="nombre@correo.cl" />
+                    <input type="text" value="@form.Correo" @oninput="@(e => form.Correo = e.Value?.ToString() ?? string.Empty)" placeholder="nombre@correo.cl" />
                     <ValidationMessage For="() => form.Correo" class="text-danger" />
                 </div>
                 <button type="submit" class="pub-btn-primary" disabled="@enviando">Enviarme el link</button>

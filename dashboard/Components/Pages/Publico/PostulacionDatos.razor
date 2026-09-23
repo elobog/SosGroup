@@ -10,7 +10,7 @@
 
 @if (info is null)
 {
-    <div class="panel"><div style="padding:20px;">Este link ya no es válido — puede haber expirado o haberse usado antes. <a class="link-btn" href="/postulaciones">Volver a búsquedas abiertas</a>.</div></div>
+    <div class="panel"><div style="padding:20px;">Este link ya no es válido — puede haber expirado o haberse usado antes. <a class="link-btn" href="/postulaciones" data-enhance-nav="false">Volver a búsquedas abiertas</a>.</div></div>
 }
 else if (enviado)
 {
@@ -20,7 +20,7 @@ else
 {
     <div class="panel">
         <div class="panel-head"><h3>Completa tus datos</h3><span class="tag">@info.CargoNombre</span></div>
-        <EditForm Model="form" OnValidSubmit="EnviarAsync" class="form-grid">
+        <EditForm Model="form" FormName="postulacion-datos" OnValidSubmit="EnviarAsync" class="form-grid">
             <DataAnnotationsValidator />
             <div class="form-field">
                 <label>RUT</label>
