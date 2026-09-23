@@ -280,7 +280,7 @@ else if (perfilActual is not null)
                                             <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-check" /></svg>
                                         </span>
                                     }
-                                    else if (roles.Contains(rol))
+                                    else if (roles.Contains(rol) || roles.Contains("SuperAdmin"))
                                     {
                                         <button class="row-icon-btn" title="Aprobar como @rol" @onclick="() => Aprobar(v.Version.Id, rol)">
                                             <svg width="14" height="14" viewBox="0 0 20 20"><use href="#i-lock" /></svg>
