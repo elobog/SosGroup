@@ -47,6 +47,7 @@
                     </tr>
                     @foreach (var (moduloId, label) in modulos)
                     {
+                        if (PortalDefinicion.ModulosExclusivosDeRol.ContainsKey($"{app}:{moduloId}")) continue;
                         <tr class="access-mod-row">
                             <td style="padding-left:38px;">@label</td>
                             @foreach (var r in roles)

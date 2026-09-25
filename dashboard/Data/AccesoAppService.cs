@@ -29,10 +29,21 @@ public class AccesoAppService(IDbContextFactory<ApplicationDbContext> dbFactory)
         await using var db = await dbFactory.CreateDbContextAsync();
         var roleIds = await db.UserRoles.Where(ur => ur.UserId == userId).Select(ur => ur.RoleId).ToListAsync();
 
+        var nombresRol = await db.Roles.Where(r => roleIds.Contains(r.Id)).Select(r => r.Name!).ToListAsync();
+
         var apps = await db.PerfilesAplicacion.Where(p => roleIds.Contains(p.RoleId)).Select(p => p.App).Distinct().ToListAsync();
         var modulos = await db.PerfilesModulo.Where(p => roleIds.Contains(p.RoleId)).Select(p => new { p.App, p.Modulo }).Distinct().ToListAsync();
 
-        return apps.ToDictionary(app => app, app => modulos.Where(m => m.App == app).Select(m => m.Modulo).OrderBy(m => PortalDefinicion.OrdenModulo(app, m)).ToList());
+        var permitidos = modulos.Select(m => (m.App, m.Modulo)).ToHashSet();
+        foreach (var (clave, rol) in PortalDefinicion.ModulosExclusivosDeRol)
+        {
+            var partes = clave.Split(':');
+            var par = (partes[0], partes[1]);
+            if (nombresRol.Contains(rol) && apps.Contains(partes[0])) permitidos.Add(par);
+            else permitidos.Remove(par);
+        }
+
+        return apps.ToDictionary(app => app, app => permitidos.Where(m => m.App == app).Select(m => m.Modulo).OrderBy(m => PortalDefinicion.OrdenModulo(app, m)).ToList());
     }
 
     public record PerfilResumen(string RoleId, string Nombre, int CantidadUsuarios, List<string> Apps);

@@ -1,0 +1,147 @@
+@page "/Admin/CostosIA"
+@layout dashboard.Components.Layout.AppShellLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SuperAdmin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using System.Globalization
+@using dashboard.Data
+
+@inject CostosIAService CostosService
+
+<PageTitle>Costos IA | SOS Group</PageTitle>
+
+<div class="page-head">
+    <div>
+        <div class="breadcrumb"><b>Admin</b> / Costos IA</div>
+        <h1>Costos IA</h1>
+        <p>Consumo de Azure OpenAI registrado por cada llamada (análisis de perfiles de cargo y extracción de CVs). Solo visible para SuperAdmin.</p>
+    </div>
+    <div class="page-actions">
+        <div class="form-field">
+            <label>Período</label>
+            <select value="@periodo" @onchange="CambiarPeriodoAsync">
+                <option value="30">Últimos 30 días</option>
+                <option value="mes">Este mes</option>
+                <option value="90">Últimos 90 días</option>
+                <option value="todo">Todo el historial</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+@if (reporte is null)
+{
+    <div class="panel" style="padding:20px;">Cargando…</div>
+}
+else
+{
+    <div class="panel">
+        <div class="panel-head"><h3>Resumen</h3><span class="tag">@EtiquetaPeriodo</span></div>
+        <div class="peso-grid" style="padding-bottom:18px;">
+            <div class="form-field"><label>Costo total</label><strong style="font-size:24px;">@Usd(reporte.Total.CostoUsd)</strong></div>
+            <div class="form-field"><label>Llamadas</label><strong style="font-size:24px;">@reporte.Total.Llamadas.ToString("N0", Cl)</strong></div>
+            <div class="form-field"><label>Tokens de entrada</label><strong style="font-size:24px;">@reporte.Total.TokensEntrada.ToString("N0", Cl)</strong></div>
+            <div class="form-field"><label>Tokens de salida</label><strong style="font-size:24px;">@reporte.Total.TokensSalida.ToString("N0", Cl)</strong></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Por propósito</h3></div>
+        <div class="table-wrap">@TablaGrupos(reporte.PorProposito, "Propósito")</div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Por cliente</h3></div>
+        <div class="table-wrap">@TablaGrupos(reporte.PorCliente, "Cliente")</div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Por usuario</h3></div>
+        <div class="table-wrap">@TablaGrupos(reporte.PorUsuario, "Usuario")</div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head"><h3>Últimas llamadas</h3><span class="tag">@reporte.Ultimas.Count</span></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Fecha</th><th>Propósito</th><th>Modelo</th><th>Cliente</th><th>Usuario</th><th>Tokens ent.</th><th>Tokens sal.</th><th>Costo</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in reporte.Ultimas)
+                    {
+                        <tr>
+                            <td>@d.FechaHora.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</td>
+                            <td>@d.Proposito</td>
+                            <td>@d.Modelo</td>
+                            <td>@d.Cliente</td>
+                            <td>@d.Usuario</td>
+                            <td>@d.TokensEntrada.ToString("N0", Cl)</td>
+                            <td>@d.TokensSalida.ToString("N0", Cl)</td>
+                            <td>@Usd(d.CostoUsd)</td>
+                        </tr>
+                    }
+                    @if (reporte.Ultimas.Count == 0)
+                    {
+                        <tr><td colspan="8" style="text-align:center;color:var(--ink-soft);">Sin llamadas registradas en este período.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+    private CostosIAService.Reporte? reporte;
+    private string periodo = "30";
+
+    private string EtiquetaPeriodo => periodo switch
+    {
+        "mes" => "Este mes",
+        "90" => "Últimos 90 días",
+        "todo" => "Todo el historial",
+        _ => "Últimos 30 días",
+    };
+
+    protected override Task OnInitializedAsync() => CargarAsync();
+
+    private async Task CambiarPeriodoAsync(ChangeEventArgs e)
+    {
+        periodo = e.Value?.ToString() ?? "30";
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        var ahora = DateTime.UtcNow;
+        DateTime? desde = periodo switch
+        {
+            "mes" => new DateTime(ahora.Year, ahora.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+            "90" => ahora.AddDays(-90),
+            "todo" => null,
+            _ => ahora.AddDays(-30),
+        };
+        reporte = await CostosService.ObtenerAsync(desde);
+    }
+
+    private static string Usd(decimal v) => "US$ " + v.ToString("N4", Cl);
+
+    private RenderFragment TablaGrupos(List<CostosIAService.Grupo> grupos, string encabezado) => __builder =>
+    {
+        <table>
+            <thead><tr><th>@encabezado</th><th>Llamadas</th><th>Tokens</th><th>Costo</th></tr></thead>
+            <tbody>
+                @foreach (var g in grupos)
+                {
+                    <tr><td>@g.Nombre</td><td>@g.Llamadas.ToString("N0", Cl)</td><td>@g.Tokens.ToString("N0", Cl)</td><td>@Usd(g.CostoUsd)</td></tr>
+                }
+                @if (grupos.Count == 0)
+                {
+                    <tr><td colspan="4" style="text-align:center;color:var(--ink-soft);">Sin datos en este período.</td></tr>
+                }
+            </tbody>
+        </table>
+    };
+}

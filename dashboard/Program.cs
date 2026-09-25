@@ -47,6 +47,7 @@ builder.Services.AddSingleton<CorreoSistemaService>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(sp => sp.GetRequiredService<CorreoSistemaService>());
 builder.Services.AddScoped<AccesoAppService>();
 builder.Services.AddScoped<ClientesService>();
+builder.Services.AddScoped<CostosIAService>();
 builder.Services.AddScoped<PerfilCargoService>();
 builder.Services.AddScoped<BlobStorageService>();
 builder.Services.AddScoped<PerfilCargoIAService>();

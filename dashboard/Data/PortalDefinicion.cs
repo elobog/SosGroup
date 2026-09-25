@@ -4,6 +4,12 @@ namespace dashboard.Data;
 // porque la matriz de Accesos debe poder mostrar/habilitar un módulo aunque ningún perfil lo tenga marcado todavía.
 public static class PortalDefinicion
 {
+    // Módulos que solo ve el rol indicado, sin importar lo que diga la matriz de Accesos.
+    public static readonly Dictionary<string, string> ModulosExclusivosDeRol = new()
+    {
+        ["Admin:CostosIA"] = "SuperAdmin",
+    };
+
     public static readonly (string App, (string Id, string Label)[] Modulos)[] Apps =
     [
         ("Admin", [("Usuarios", "Usuarios"), ("Perfiles", "Perfiles"), ("Accesos", "Accesos"), ("Clientes", "Clientes"), ("CostosIA", "Costos IA")]),
@@ -14,7 +20,7 @@ public static class PortalDefinicion
     // Módulos con pantalla real construida — el resto se muestra bloqueado en el sidebar aunque el perfil tenga acceso.
     public static readonly Dictionary<string, HashSet<string>> ModulosConstruidos = new()
     {
-        ["Admin"] = ["Clientes", "Usuarios", "Perfiles", "Accesos"],
+        ["Admin"] = ["Clientes", "Usuarios", "Perfiles", "Accesos", "CostosIA"],
         ["Reclutamiento"] = ["Solicitud", "Preseleccion"],
         ["Remuneracion"] = ["Contratos"],
     };
@@ -25,6 +31,7 @@ public static class PortalDefinicion
         ["Admin:Usuarios"] = "/Admin/Usuarios",
         ["Admin:Perfiles"] = "/Admin/Perfiles",
         ["Admin:Accesos"] = "/Admin/Accesos",
+        ["Admin:CostosIA"] = "/Admin/CostosIA",
         ["Reclutamiento:Solicitud"] = "/Reclutamiento/Solicitud",
         ["Reclutamiento:Preseleccion"] = "/Reclutamiento/Preseleccion",
         ["Remuneracion:Contratos"] = "/Remuneracion/Contratos",
