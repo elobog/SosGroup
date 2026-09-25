@@ -262,6 +262,8 @@ h1:focus {
 .form-field label{display:block; font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px;}
 .form-field input, .form-field select{width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:13.5px; outline:none; font-family:inherit;}
 .form-field input:focus, .form-field select:focus{border-color:var(--navy-light); box-shadow:0 0 0 3px rgba(50,74,109,.14);}
+.cv-progreso{height:6px; border-radius:3px; background:var(--line); margin-top:10px; overflow:hidden;}
+.cv-progreso-barra{height:100%; background:var(--red); transition:width .3s;}
 .peso-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px 20px; padding:18px 20px 0;}
 .peso-slider{display:flex; align-items:center; gap:10px;}
 .peso-slider input[type=range]{flex:1; width:auto; padding:0; border:0; background:none; box-shadow:none; cursor:pointer; height:6px; accent-color:var(--red);}

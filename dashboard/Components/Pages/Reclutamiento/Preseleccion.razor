@@ -70,12 +70,20 @@ else if (solicitudActual is not null)
                 <InputFile id="cvsInput" OnChange="ProcesarCvsAsync" accept=".pdf" multiple disabled="@procesandoCvs" />
                 @if (procesandoCvs)
                 {
-                    <span class="file-picker-name">Procesando @cvsEnProceso...</span>
+                    <span class="file-picker-name">@cvsEnProceso</span>
                 }
             </div>
+            @if (procesandoCvs && cvsTotal > 0)
+            {
+                <div class="cv-progreso"><div class="cv-progreso-barra" style="width:@(cvsProcesados * 100 / cvsTotal)%"></div></div>
+            }
             @if (!string.IsNullOrEmpty(errorCarga))
             {
                 <p class="text-danger" style="margin-top:8px;">@errorCarga</p>
+            }
+            @if (cvsConError.Count > 0)
+            {
+                <p class="text-danger" style="margin-top:8px;">No se pudieron analizar @cvsConError.Count CV(s): @string.Join("; ", cvsConError.Take(5))@(cvsConError.Count > 5 ? "…" : "")</p>
             }
         </div>
 
@@ -308,6 +316,9 @@ else if (solicitudActual is not null)
     private List<CandidatoPendiente> pendientes = [];
     private bool procesandoCvs;
     private string cvsEnProceso = "";
+    private int cvsTotal;
+    private int cvsProcesados;
+    private List<string> cvsConError = [];
     private string? errorCarga;
     private string? mensajeCarga;
     private bool guardandoCarga;
@@ -446,12 +457,19 @@ else if (solicitudActual is not null)
     {
         if (solicitudActual is null) return;
         errorCarga = null;
+        cvsConError = [];
+        cvsTotal = 0;
+        cvsProcesados = 0;
         procesandoCvs = true;
         try
         {
-            foreach (var archivo in e.GetMultipleFiles(20))
+            var archivos = e.GetMultipleFiles(20);
+            var trabajo = new List<(string Archivo, byte[] BytesArchivo, List<CvSeparador.Segmento> Segmentos)>();
+
+            for (var i = 0; i < archivos.Count; i++)
             {
-                cvsEnProceso = archivo.Name;
+                var archivo = archivos[i];
+                cvsEnProceso = $"Leyendo archivo {i + 1} de {archivos.Count}: {archivo.Name}…";
                 StateHasChanged();
 
                 using var memoria = new MemoryStream();
@@ -461,32 +479,65 @@ else if (solicitudActual is not null)
                 }
                 var bytes = memoria.ToArray();
 
-                var texto = PdfTextExtractor.ExtraerTexto(bytes);
-                var extraido = await PostulanteIAService.ExtraerCvAsync(texto, solicitudActual.ClienteId, solicitudActual.Id, usuarioId);
-
-                pendientes.Add(new CandidatoPendiente
+                try
                 {
-                    Nombre = extraido.Nombre ?? "",
-                    RUT = extraido.RUT ?? "",
-                    Correo = extraido.Correo ?? "",
-                    Telefono = extraido.Telefono,
-                    Sexo = extraido.Sexo,
-                    Edad = extraido.Edad,
-                    Comuna = extraido.Comuna,
-                    AniosExperiencia = extraido.AniosExperiencia,
-                    RubroExperiencia = extraido.RubroExperiencia,
-                    CvBytes = bytes,
-                    CvNombreArchivo = archivo.Name,
-                });
+                    trabajo.Add((archivo.Name, bytes, CvSeparador.Separar(bytes)));
+                }
+                catch (Exception ex)
+                {
+                    cvsConError.Add($"{archivo.Name}: no se pudo leer el PDF ({ex.Message})");
+                }
+            }
+
+            cvsTotal = trabajo.Sum(t => t.Segmentos.Count);
+
+            foreach (var (archivoNombre, bytesArchivo, segmentos) in trabajo)
+            {
+                var baseNombre = Path.GetFileNameWithoutExtension(archivoNombre);
+                foreach (var seg in segmentos)
+                {
+                    cvsEnProceso = $"Analizando CV {cvsProcesados + 1} de {cvsTotal} con IA — {archivoNombre}" +
+                        (segmentos.Count > 1 ? $" (CV {seg.Numero} de {segmentos.Count})" : "") + "…";
+                    StateHasChanged();
+
+                    try
+                    {
+                        var extraido = await PostulanteIAService.ExtraerCvAsync(seg.Texto, solicitudActual.ClienteId, solicitudActual.Id, usuarioId);
+
+                        pendientes.Add(new CandidatoPendiente
+                        {
+                            Nombre = extraido.Nombre ?? "",
+                            RUT = extraido.RUT ?? "",
+                            Correo = extraido.Correo ?? "",
+                            Telefono = extraido.Telefono,
+                            Sexo = extraido.Sexo,
+                            Edad = extraido.Edad,
+                            Comuna = extraido.Comuna,
+                            AniosExperiencia = extraido.AniosExperiencia,
+                            RubroExperiencia = extraido.RubroExperiencia,
+                            CvBytes = segmentos.Count == 1 ? bytesArchivo : seg.Pdf ?? [],
+                            CvNombreArchivo = segmentos.Count == 1 ? archivoNombre : $"{baseNombre}_cv{seg.Numero:000}.pdf",
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        cvsConError.Add($"{archivoNombre} (CV {seg.Numero}, págs. {seg.PaginaInicio}-{seg.PaginaFin}): {ex.Message}");
+                    }
+
+                    cvsProcesados++;
+                    StateHasChanged();
+                    await Task.Delay(300);
+                }
             }
         }
         catch (Exception ex)
         {
-            errorCarga = $"No se pudo procesar uno de los CVs: {ex.Message}";
+            errorCarga = $"No se pudo procesar la carga: {ex.Message}";
         }
         finally
         {
             procesandoCvs = false;
+            cvsEnProceso = "";
         }
     }
 

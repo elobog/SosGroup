@@ -47,7 +47,7 @@ public class PostulanteIAService(IConfiguration configuration, IDbContextFactory
             ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
         };
 
-        var respuesta = await chatClient.CompleteChatAsync(mensajes, opciones);
+        var respuesta = await CompletarConReintentoAsync(chatClient, mensajes, opciones);
         var json = respuesta.Value.Content[0].Text;
 
         var resultado = JsonSerializer.Deserialize<CvExtraido>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
@@ -73,6 +73,24 @@ public class PostulanteIAService(IConfiguration configuration, IDbContextFactory
         await db.SaveChangesAsync();
 
         return resultado;
+    }
+
+    // El límite de tokens por minuto del despliegue se recupera solo: ante un 429 se espera y se
+    // reintenta en vez de descartar el CV (además del reintento corto que ya trae el cliente de Azure).
+    private static async Task<ClientResult<ChatCompletion>> CompletarConReintentoAsync(ChatClient chatClient, List<ChatMessage> mensajes, ChatCompletionOptions opciones)
+    {
+        var esperas = new[] { 15, 30, 60 };
+        for (var intento = 0; ; intento++)
+        {
+            try
+            {
+                return await chatClient.CompleteChatAsync(mensajes, opciones);
+            }
+            catch (ClientResultException ex) when (ex.Status == 429 && intento < esperas.Length)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(esperas[intento]));
+            }
+        }
     }
 
     private const string PromptSistema = """

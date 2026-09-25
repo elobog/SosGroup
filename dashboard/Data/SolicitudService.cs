@@ -354,8 +354,11 @@ public class SolicitudService(IDbContextFactory<ApplicationDbContext> dbFactory,
                 db.PostulanteSolicitudes.Add(new PostulanteSolicitud { PostulanteId = postulante.Id, SolicitudId = solicitudId, Origen = "CargaMasiva", FechaIngreso = DateTime.UtcNow });
             }
 
-            var rutaBlob = await blobStorage.SubirDocumentoPostulanteAsync(postulante.Id, c.CvNombreArchivo, new MemoryStream(c.CvBytes));
-            db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = "CV", RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
+            if (c.CvBytes.Length > 0)
+            {
+                var rutaBlob = await blobStorage.SubirDocumentoPostulanteAsync(postulante.Id, c.CvNombreArchivo, new MemoryStream(c.CvBytes));
+                db.PostulanteDocumentos.Add(new PostulanteDocumento { PostulanteId = postulante.Id, Tipo = "CV", RutaArchivo = rutaBlob, FechaCarga = DateTime.UtcNow });
+            }
 
             guardados++;
         }
