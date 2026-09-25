@@ -129,8 +129,14 @@ else if (solicitudActual is not null)
             <h3>Panel de precalificación</h3>
             <span class="tag" style="color:@(SumaPesos == 100 ? "var(--ok)" : "var(--red)")">Suma de pesos: @SumaPesos / 100</span>
         </div>
+        <div class="peso-grid @(SumaPesos == 100 ? "ok" : "bad")">
+            <div class="form-field"><label>Sexo — peso</label><div class="peso-slider"><input type="range" min="0" max="100" step="5" @bind="config.SexoPeso" @bind:event="oninput" /><span class="peso-val">@config.SexoPeso%</span></div></div>
+            <div class="form-field"><label>Edad — peso</label><div class="peso-slider"><input type="range" min="0" max="100" step="5" @bind="config.EdadPeso" @bind:event="oninput" /><span class="peso-val">@config.EdadPeso%</span></div></div>
+            <div class="form-field"><label>Comuna — peso</label><div class="peso-slider"><input type="range" min="0" max="100" step="5" @bind="config.ComunaPeso" @bind:event="oninput" /><span class="peso-val">@config.ComunaPeso%</span></div></div>
+            <div class="form-field"><label>Años experiencia — peso</label><div class="peso-slider"><input type="range" min="0" max="100" step="5" @bind="config.ExperienciaPeso" @bind:event="oninput" /><span class="peso-val">@config.ExperienciaPeso%</span></div></div>
+            <div class="form-field"><label>Rubro — peso</label><div class="peso-slider"><input type="range" min="0" max="100" step="5" @bind="config.RubroPeso" @bind:event="oninput" /><span class="peso-val">@config.RubroPeso%</span></div></div>
+        </div>
         <div class="form-grid">
-            <div class="form-field"><label>Sexo — peso</label><input type="number" @bind="config.SexoPeso" min="0" max="100" /></div>
             <div class="form-field">
                 <label>Sexo — objetivo</label>
                 <select @bind="config.SexoObjetivo">
@@ -139,7 +145,6 @@ else if (solicitudActual is not null)
                     <option value="Masculino">Masculino</option>
                 </select>
             </div>
-            <div class="form-field"><label>Edad — peso</label><input type="number" @bind="config.EdadPeso" min="0" max="100" /></div>
             <div class="form-field">
                 <label>Edad — rango ideal</label>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -148,11 +153,8 @@ else if (solicitudActual is not null)
                     <input type="number" @bind="config.EdadMax" style="width:80px;" />
                 </div>
             </div>
-            <div class="form-field"><label>Comuna — peso</label><input type="number" @bind="config.ComunaPeso" min="0" max="100" /></div>
             <div class="form-field"><label>Comuna(s) preferidas</label><input type="text" @bind="config.ComunaObjetivo" placeholder="Vacío = sin preferencia. Ej: Providencia, Ñuñoa" /></div>
-            <div class="form-field"><label>Años experiencia — peso</label><input type="number" @bind="config.ExperienciaPeso" min="0" max="100" /></div>
             <div class="form-field"><label>Años experiencia — mínimo deseado</label><input type="number" @bind="config.ExperienciaMinimo" min="0" /></div>
-            <div class="form-field"><label>Rubro — peso</label><input type="number" @bind="config.RubroPeso" min="0" max="100" /></div>
             <div class="form-field"><label>Rubro requerido</label><input type="text" @bind="config.RubroObjetivo" placeholder="Vacío = sin preferencia. Ej: Remuneraciones" /></div>
         </div>
         <div class="form-actions">

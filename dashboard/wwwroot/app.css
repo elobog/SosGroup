@@ -262,6 +262,14 @@ h1:focus {
 .form-field label{display:block; font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px;}
 .form-field input, .form-field select{width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:13.5px; outline:none; font-family:inherit;}
 .form-field input:focus, .form-field select:focus{border-color:var(--navy-light); box-shadow:0 0 0 3px rgba(50,74,109,.14);}
+.peso-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px 20px; padding:18px 20px 0;}
+.peso-slider{display:flex; align-items:center; gap:10px;}
+.peso-slider input[type=range]{flex:1; width:auto; padding:0; border:0; background:none; box-shadow:none; cursor:pointer; height:6px; accent-color:var(--red);}
+.peso-val{min-width:42px; text-align:right; font-weight:700; font-size:13.5px; color:var(--red);}
+.peso-grid.bad .peso-slider input[type=range]{accent-color:var(--red);}
+.peso-grid.bad .peso-val{color:var(--red);}
+.peso-grid.ok .peso-slider input[type=range]{accent-color:var(--ok);}
+.peso-grid.ok .peso-val{color:var(--ok);}
 .form-actions{display:flex; justify-content:flex-end; gap:10px; padding:6px 20px 20px; flex-wrap:wrap; align-items:center;}
 
 .detail-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px 24px; padding:18px 20px;}
